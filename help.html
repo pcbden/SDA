@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Serial Debug Assistant – Help</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 13px;
+      background: #f4f4f4;
+      color: #222;
+      line-height: 1.6;
+    }
+
+    /* ── nav ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0;
+      width: 200px;
+      height: 100vh;
+      background: #1e2a3a;
+      color: #cdd7e5;
+      overflow-y: auto;
+      padding: 16px 0;
+      z-index: 10;
+    }
+    nav h2 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #7a9bbf;
+      padding: 6px 16px 4px;
+    }
+    nav a {
+      display: block;
+      padding: 5px 16px 5px 22px;
+      color: #cdd7e5;
+      text-decoration: none;
+      font-size: 12px;
+      border-left: 3px solid transparent;
+      transition: background .1s;
+    }
+    nav a:hover { background: #263547; color: #fff; }
+    nav a.top { font-weight: 700; font-size: 13px; padding-left: 16px; color: #fff; margin-bottom: 6px; }
+
+    /* ── content ── */
+    .content {
+      margin-left: 200px;
+      padding: 24px 32px 60px;
+      max-width: 860px;
+    }
+
+    h1 { font-size: 22px; color: #0d2a4a; margin-bottom: 6px; }
+    h2 { font-size: 17px; color: #0d2a4a; margin: 36px 0 10px; padding-bottom: 4px; border-bottom: 2px solid #b8cce4; }
+    h3 { font-size: 14px; color: #1a4060; margin: 22px 0 6px; }
+    p  { margin: 6px 0; }
+    ul, ol { margin: 6px 0 6px 22px; }
+    li { margin: 3px 0; }
+    code {
+      font-family: 'Courier New', monospace;
+      background: #e8eef8;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 12px;
+    }
+    strong { color: #0d2a4a; }
+    a.ext { color: #0060c0; }
+
+    /* ── note / tip / warn boxes ── */
+    .note, .tip, .warn {
+      border-left: 4px solid;
+      padding: 8px 12px;
+      margin: 12px 0;
+      border-radius: 0 4px 4px 0;
+      font-size: 12px;
+    }
+    .note { background: #e8f0fe; border-color: #4285f4; }
+    .tip  { background: #e8f8e8; border-color: #34a853; }
+    .warn { background: #fff3e0; border-color: #f9ab00; }
+
+    /* ── UI mockup diagrams ── */
+    .diagram {
+      position: relative;
+      background: #ececec;
+      border: 1px solid #b0b0b0;
+      border-radius: 4px;
+      margin: 14px 0 22px;
+      font-size: 11px;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .diagram .bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      background: linear-gradient(180deg, #f7f7f7, #e2e2e2);
+      border-bottom: 1px solid #adadad;
+      flex-wrap: wrap;
+      row-gap: 4px;
+    }
+    .diagram .panel-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 6px;
+      background: linear-gradient(180deg, #f5f5f5, #e4e4e4);
+      border-bottom: 1px solid #b8b8b8;
+      flex-wrap: wrap;
+    }
+    .diagram .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 2px 8px;
+      background: linear-gradient(180deg, #e4e4e4, #d4d4d4);
+      border-top: 1px solid #adadad;
+      font-size: 11px;
+      color: #444;
+    }
+    .d-lbl  { color: #444; white-space: nowrap; }
+    .d-sel  { height: 20px; border: 1px solid #8c8c8c; background: #fff; padding: 0 4px; font-size: 11px; }
+    .d-inp  { height: 20px; border: 1px solid #8c8c8c; background: #fff; padding: 0 4px; font-size: 11px; font-family: 'Courier New', monospace; }
+    .d-btn  { height: 22px; padding: 0 8px; border: 1px solid #8c8c8c; background: linear-gradient(180deg,#fafafa,#dfdfdf); font-size: 11px; cursor: default; white-space: nowrap; }
+    .d-btn.blue  { background: linear-gradient(180deg,#068dd8,#005fa3); color:#fff; border-color:#004a82; font-weight:600; }
+    .d-btn.green { background: linear-gradient(180deg,#eef8e4,#cde8a8); border-color:#78a848; color:#1a5010; font-weight:600; }
+    .d-btn.red   { background: linear-gradient(180deg,#d94040,#a82020); color:#fff; border-color:#801818; font-weight:600; }
+    .d-dot  { width:8px; height:8px; border-radius:50%; display:inline-block; border:1px solid #999; background:#bbb; flex-shrink:0; }
+    .d-dot.on  { background:#22b022; border-color:#128012; }
+    .d-dot.off { background:#d94040; border-color:#a82020; }
+    .d-chk  { display:flex; align-items:center; gap:3px; white-space:nowrap; cursor:default; }
+    .d-sep  { width:1px; height:18px; background:#adadad; flex-shrink:0; }
+    .d-port { color:#005a9e; font-weight:500; }
+    .d-area { font-family:'Courier New',monospace; font-size:11px; padding:6px 8px; background:#fff; min-height:56px; line-height:1.5; }
+    .d-rx-ts { color:#999; font-size:10px; }
+    .d-tx-echo { color:#0060a8; }
+    .d-title { font-weight:700; font-size:11px; color:#333; }
+    .d-spacer { flex:1; }
+    .d-slave { background:#fdf8ff; border-color:#b8a0d0; }
+    .d-result { width:90px; height:20px; font-family:'Courier New',monospace; font-size:11px; border:1px solid #9ab0d8; background:#e8f5e0; padding:0 4px; color:#1a5010; cursor:default; }
+
+    /* ── callout annotations ── */
+    .callouts {
+      position: relative;
+      overflow: visible;
+    }
+    .ann {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #c0392b;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      vertical-align: middle;
+      margin: 0 2px;
+      flex-shrink: 0;
+      cursor: default;
+      user-select: none;
+    }
+
+    /* ── callout legend ── */
+    .legend {
+      margin: 10px 0 0;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 4px 10px;
+      font-size: 12px;
+    }
+    .legend .num { text-align: right; }
+
+    /* ── table ── */
+    table { border-collapse: collapse; margin: 8px 0; width: 100%; font-size: 12px; }
+    th { background: #dce6f0; text-align: left; padding: 5px 8px; border: 1px solid #b0c4d8; }
+    td { padding: 4px 8px; border: 1px solid #d0d8e4; vertical-align: top; }
+    tr:nth-child(even) td { background: #f5f8fc; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="#overview" class="top">SDA Help</a>
+  <h2>Sections</h2>
+  <a href="#overview">Overview</a>
+  <a href="#requirements">Requirements</a>
+  <a href="#conn-bar">Connection Bar</a>
+  <a href="#mqtt-bar">MQTT Settings</a>
+  <a href="#receive">Receive Panel</a>
+  <a href="#send">Send Panel</a>
+  <a href="#ext-cmds">Extension Commands</a>
+  <a href="#modbus-master">— Modbus Master</a>
+  <a href="#modbus-slave">— Modbus Slave (MS)</a>
+  <a href="#poll">Poll &amp; Loop</a>
+  <a href="#import-export">Import / Export</a>
+  <a href="#graph">Graph</a>
+  <a href="#status-bar">Status Bar</a>
+  <a href="#tips">Tips</a>
+</nav>
+
+<div class="content">
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h1 id="overview">Serial Debug Assistant</h1>
+<p>A browser-based tool for sending and receiving data over <strong>USB Serial</strong> or <strong>MQTT over WebSocket</strong>. It supports raw text/hex communication, Modbus RTU/ASCII master polling, and Modbus slave simulation.</p>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="requirements">Requirements</h2>
+<ul>
+  <li><strong>Browser:</strong> Google Chrome or Microsoft Edge version 89 or newer. Firefox does not support the Web Serial API.</li>
+  <li><strong>Served from:</strong> <code>http://localhost</code>, <code>http://127.0.0.1</code>, or any <code>https://</code> origin. Opening directly as a <code>file://</code> URL will not work.</li>
+  <li><strong>Quick start:</strong> Run <code>python3 -m http.server 8080</code> in the project folder, then open <code>http://localhost:8080</code>.</li>
+  <li><strong>Linux users:</strong> Your account must be in the <code>dialout</code> group (<code>sudo usermod -aG dialout $USER</code>, then log out and back in). Snap-packaged Chromium sandboxes Web Serial — install Chrome from the official <code>.deb</code> package instead.</li>
+</ul>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="conn-bar">Connection Bar</h2>
+<p>The top bar controls how the app connects to a serial device. Settings are remembered across sessions.</p>
+
+<div class="diagram">
+  <div class="bar">
+    <span class="d-lbl">Port:</span>
+    <span class="d-port">/dev/ttyUSB0</span>
+    <span class="ann">1</span>
+    <span class="d-sep"></span>
+    <label class="d-chk"><input type="checkbox" disabled> MQTT</label>
+    <span class="ann">2</span>
+    <label class="d-chk"><input type="checkbox" disabled> MS</label>
+    <span class="ann">3</span>
+    <span class="d-sep"></span>
+    <span class="d-lbl">Baud</span>
+    <select class="d-sel" disabled><option>9600</option></select>
+    <span class="ann">4</span>
+    <span class="d-lbl">Data</span>
+    <select class="d-sel" style="width:42px" disabled><option>8</option></select>
+    <span class="ann">5</span>
+    <span class="d-lbl">Parity</span>
+    <select class="d-sel" style="width:56px" disabled><option>None</option></select>
+    <span class="ann">6</span>
+    <span class="d-lbl">Stop</span>
+    <select class="d-sel" style="width:42px" disabled><option>1</option></select>
+    <span class="ann">7</span>
+    <span class="d-sep"></span>
+    <button class="d-btn blue" disabled>Open</button>
+    <span class="ann">8</span>
+    <span style="flex:1"></span>
+    <button class="d-btn" disabled>?</button>
+    <span class="ann">9</span>
+  </div>
+</div>
+
+<div class="legend">
+  <span class="num"><span class="ann">1</span></span><span><strong>Port name</strong> — shows the selected serial port name after connecting (e.g. <code>/dev/ttyUSB0</code> or <code>COM3</code>). Shows <code>—</code> when disconnected.</span>
+  <span class="num"><span class="ann">2</span></span><span><strong>MQTT checkbox</strong> — tick to reveal the MQTT settings bar below. Unticked on every page load (MQTT always starts hidden).</span>
+  <span class="num"><span class="ann">3</span></span><span><strong>MS checkbox (Modbus Slave)</strong> — switches the whole app into slave simulation mode. See the <a href="#modbus-slave">Modbus Slave</a> section. Remembered across sessions.</span>
+  <span class="num"><span class="ann">4</span></span><span><strong>Baud rate</strong> — standard rates from 300 to 921600. Must match the connected device.</span>
+  <span class="num"><span class="ann">5</span></span><span><strong>Data bits</strong> — 7 or 8. Almost always 8.</span>
+  <span class="num"><span class="ann">6</span></span><span><strong>Parity</strong> — None / Even / Odd. Must match the device.</span>
+  <span class="num"><span class="ann">7</span></span><span><strong>Stop bits</strong> — 1 or 2. Must match the device.</span>
+  <span class="num"><span class="ann">8</span></span><span><strong>Open / Close button</strong> — click to open a port picker (a browser dialog listing available USB serial devices). After selecting, the port opens and the button turns red and reads "Close". Click again to disconnect. All serial settings are locked while the port is open.</span>
+  <span class="num"><span class="ann">9</span></span><span><strong>? (Help)</strong> — opens this help page in a new window.</span>
+</div>
+
+<div class="note">Serial settings (Baud, Data, Parity, Stop) are disabled while connected. Close the port first if you need to change them.</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="mqtt-bar">MQTT Settings Bar</h2>
+<p>Appears below the connection bar when the <strong>MQTT</strong> checkbox is ticked. The app connects to an MQTT broker over WebSocket — it does <em>not</em> use a native TCP MQTT port.</p>
+
+<div class="diagram">
+  <div class="bar" style="font-size:11px; gap:4px; flex-wrap:wrap; row-gap:4px;">
+    <select class="d-sel" style="width:64px" disabled><option>ws://</option></select>
+    <span class="ann">1</span>
+    <input class="d-inp" style="width:110px" placeholder="192.168.1.100" disabled>
+    <span class="ann">2</span>
+    <span class="d-lbl">:</span>
+    <input class="d-inp" style="width:48px" placeholder="8083" disabled>
+    <span class="ann">3</span>
+    <input class="d-inp" style="width:52px" placeholder="/mqtt" disabled>
+    <span class="ann">4</span>
+    <span class="d-sep"></span>
+    <span class="d-lbl">User</span>
+    <input class="d-inp" style="width:70px" placeholder="user" disabled>
+    <span class="ann">5</span>
+    <span class="d-lbl">Pass</span>
+    <input class="d-inp" style="width:70px" placeholder="••••" disabled>
+    <span class="ann">6</span>
+    <span class="d-sep"></span>
+    <span class="d-lbl">Pub</span>
+    <input class="d-inp" style="width:110px" placeholder="O/imei/rec" disabled>
+    <span class="ann">7</span>
+    <span class="d-lbl">Sub</span>
+    <input class="d-inp" style="width:110px" placeholder="O/imei/out" disabled>
+    <span class="ann">8</span>
+    <span class="d-lbl">Status</span>
+    <input class="d-inp" style="width:110px" placeholder="O/imei/status" disabled>
+    <span class="ann">9</span>
+    <span class="d-sep"></span>
+    <span class="d-lbl">QoS</span>
+    <select class="d-sel" style="width:42px" disabled><option>0</option></select>
+    <span class="ann">10</span>
+    <label class="d-chk"><input type="checkbox" disabled> Retain</label>
+    <span class="ann">11</span>
+    <span class="d-sep"></span>
+    <button class="d-btn blue" disabled>Connect</button>
+    <span class="ann">12</span>
+  </div>
+</div>
+
+<div class="legend">
+  <span class="num"><span class="ann">1</span></span><span><strong>Protocol</strong> — <code>ws://</code> for plain WebSocket (LAN/localhost), <code>wss://</code> for TLS-encrypted WebSocket. Browsers block mixed content, so if the page is on HTTPS you must use <code>wss://</code>.</span>
+  <span class="num"><span class="ann">2</span></span><span><strong>Host</strong> — IP address or hostname of the MQTT broker (e.g. <code>192.168.1.10</code>).</span>
+  <span class="num"><span class="ann">3</span></span><span><strong>Port</strong> — WebSocket port on the broker. Mosquitto default WebSocket port is <code>8083</code> (plain) or <code>8084</code> (TLS).</span>
+  <span class="num"><span class="ann">4</span></span><span><strong>Path</strong> — WebSocket path. Default is <code>/mqtt</code>. Some brokers use <code>/ws</code> or <code>/</code>.</span>
+  <span class="num"><span class="ann">5</span></span><span><strong>Username</strong> — leave blank if the broker allows anonymous connections.</span>
+  <span class="num"><span class="ann">6</span></span><span><strong>Password</strong> — stored in localStorage (same as all other settings). Clear it manually if needed.</span>
+  <span class="num"><span class="ann">7</span></span><span><strong>Pub (Publish topic)</strong> — the topic the app <em>sends</em> commands to. Cannot contain wildcards (<code>+</code>, <code>#</code>).</span>
+  <span class="num"><span class="ann">8</span></span><span><strong>Sub (Subscribe topic)</strong> — the topic the app <em>listens</em> on for responses. Wildcards <code>+</code> (one level) and <code>#</code> (multi-level) are supported. If this matches the publish topic (e.g. they are the same, or a wildcard covers it), the app will receive its own transmissions back — this is normal for loopback testing.</span>
+  <span class="num"><span class="ann">9</span></span><span><strong>Status topic</strong> — optional. The app subscribes here and displays a coloured dot + info from the payload. Expected payload format: <code>online,100,19,99</code> (comma-separated: status, battery%, signal dBm, …).</span>
+  <span class="num"><span class="ann">10</span></span><span><strong>QoS</strong> — MQTT Quality of Service for publishing: <code>0</code>=fire and forget, <code>1</code>=at least once, <code>2</code>=exactly once.</span>
+  <span class="num"><span class="ann">11</span></span><span><strong>Retain</strong> — when checked, the broker stores the last published message and delivers it immediately to new subscribers. To clear a retained message: connect, tick Retain, and send an <em>empty</em> message on that topic.</span>
+  <span class="num"><span class="ann">12</span></span><span><strong>Connect / Disconnect</strong> — establishes the WebSocket-MQTT connection. Turns red when connected. The port picker (Open button) is not used in MQTT mode.</span>
+</div>
+
+<div class="tip">Modbus over MQTT: the app encodes each frame as an uppercase ASCII-hex string before publishing (e.g. <code>010300000001840A</code>), and expects responses in the same format. This is the standard used by many IoT gateways (e.g. Teltonika).</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="receive">Receive Panel</h2>
+<p>Displays all incoming data from the serial port or MQTT broker. The panel fills the left column of the app.</p>
+
+<div class="diagram">
+  <div class="panel-bar">
+    <span class="d-title">Receive</span>
+    <span class="ann">1</span>
+    <label class="d-chk"><input type="checkbox" disabled> Hex</label>
+    <span class="ann">2</span>
+    <label class="d-chk"><input type="checkbox" disabled> Show TX</label>
+    <span class="ann">3</span>
+    <label class="d-chk"><input type="checkbox" disabled> Time</label>
+    <span class="ann">4</span>
+    <span style="color:#ccc">|</span>
+    <label class="d-chk"><input type="checkbox" disabled> Frame Break</label>
+    <span class="ann">5</span>
+    <input type="number" style="width:46px;height:20px;border:1px solid #8c8c8c;font-size:11px;padding:0 3px" value="500" disabled>
+    <span style="color:#555;font-size:11px">ms</span>
+    <span class="ann">6</span>
+    <span style="color:#ccc">|</span>
+    <button class="d-btn" style="height:20px;font-size:11px" disabled>Log</button>
+    <span class="ann">7</span>
+    <label class="d-chk"><input type="checkbox" disabled> Append</label>
+    <span class="ann">8</span>
+    <span style="color:#005a9e;font-size:11px;font-style:italic">serial_log.txt</span>
+    <span class="ann">9</span>
+    <span class="d-spacer"></span>
+    <button class="d-btn" style="height:20px;font-size:11px" disabled>Pause</button>
+    <span class="ann">10</span>
+    <button class="d-btn" style="height:20px;font-size:11px" disabled>Clear</button>
+    <span class="ann">11</span>
+  </div>
+  <div class="d-area">
+    <span class="d-rx-ts">[14:23:01.456] </span>OK+CMGS: 3<br>
+    <span class="d-tx-echo">→ AT+CMGS="0901234567"</span><br>
+    <span style="color:#999;font-size:10px;font-style:italic;display:block;text-align:center;border-top:1px dashed #ddd;border-bottom:1px dashed #ddd;margin:2px 0">── 14:23:02.001 ──</span>
+    <span class="d-rx-ts">[14:23:02.110] </span>+CMGS: 7
+  </div>
+</div>
+
+<div class="legend">
+  <span class="num"><span class="ann">1</span></span><span><strong>Hex mode</strong> — when checked, incoming bytes are shown as uppercase hex pairs separated by spaces (e.g. <code>01 03 02 00 1A</code>). When unchecked, bytes are decoded as UTF-8 text. This also controls how TX echoes are displayed.</span>
+  <span class="num"><span class="ann">2</span></span><span><strong>Show TX</strong> — when checked, every frame you send appears in the receive area in <span style="color:#0060a8">blue</span> prefixed with <code>→</code>. Slave responses appear with <code>←</code>. Useful to see the full conversation in one place.</span>
+  <span class="num"><span class="ann">3</span></span><span><strong>Time</strong> — prepends a <code>[HH:MM:SS.mmm]</code> timestamp to each message. Starts unchecked on every load.</span>
+  <span class="num"><span class="ann">4</span></span><span><strong>Frame Break</strong> — draws a dashed separator line in the receive area after a period of silence. Helps visually separate individual frames or responses. Starts unchecked on every load.</span>
+  <span class="num"><span class="ann">5</span></span><span><strong>Break delay (ms)</strong> — how many milliseconds of silence before the separator appears. Default 500 ms.</span>
+  <span class="num"><span class="ann">6</span></span><span><strong>Log button</strong> — opens a system file-save dialog to choose a log file. All received data (and TX echoes if Show TX is on) is appended to the file in real time. Click again ("Stop Log") to close the file. Chrome/Edge only — Firefox does not support <code>showSaveFilePicker</code>.</span>
+  <span class="num"><span class="ann">7</span></span><span><strong>Append checkbox</strong> — when checked, logging appends to an existing file rather than overwriting it. Has no effect if the file is new.</span>
+  <span class="num"><span class="ann">8</span></span><span><strong>Log file name</strong> — shows the name of the currently open log file in italic blue. Empty when not logging.</span>
+  <span class="num"><span class="ann">9</span></span><span><strong>Pause / Resume</strong> — stops new data from appearing in the receive area (data is still received internally — Modbus responses and slave logic still work). The button highlights when paused. Click again to resume.</span>
+  <span class="num"><span class="ann">10</span></span><span><strong>Clear</strong> — clears the receive area and resets the RX byte counter in the status bar.</span>
+</div>
+
+<div class="note">The receive area is capped at 1000 child nodes. Older content is trimmed automatically to prevent the browser from slowing down on long sessions.</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="send">Send Panel</h2>
+<p>Located below the receive area. Lets you type and send a single message.</p>
+
+<div class="diagram">
+  <div class="panel-bar">
+    <span class="d-title">Send</span>
+    <label class="d-chk"><input type="checkbox" disabled> Hex</label>
+    <span class="ann">1</span>
+    <label class="d-chk"><input type="checkbox" disabled> +\r\n</label>
+    <span class="ann">2</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:4px;padding:4px">
+    <input class="d-inp" style="flex:1;width:auto" placeholder="Data to send…" disabled>
+    <span class="ann">3</span>
+    <button class="d-btn green" disabled>Send</button>
+    <span class="ann">4</span>
+  </div>
+</div>
+
+<div class="legend">
+  <span class="num"><span class="ann">1</span></span><span><strong>Hex mode</strong> — when checked, the input field accepts hex pairs (e.g. <code>01 03 00 00 00 01</code>). The field auto-formats input as you type. When unchecked, text is sent as UTF-8.</span>
+  <span class="num"><span class="ann">2</span></span><span><strong>+\r\n</strong> — appends a carriage return + line feed (<code>0x0D 0x0A</code>) to every send. Useful for AT commands and text protocols that expect line endings.</span>
+  <span class="num"><span class="ann">3</span></span><span><strong>Input field</strong> — type your data here. Press <strong>Enter</strong> or click Send. In Hex mode, only hex characters are accepted and spaces are added automatically.</span>
+  <span class="num"><span class="ann">4</span></span><span><strong>Send button</strong> — sends the current content. Disabled in Modbus Slave (MS) mode.</span>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="ext-cmds">Extension Commands</h2>
+<p>The right column ("Extension Commands") holds a list of saved commands. Each command can be sent individually or iterated by the poller. Commands are stored in <code>localStorage</code> and persist across sessions.</p>
+
+<div class="diagram">
+  <div class="panel-bar">
+    <span class="d-title">Extension Commands</span>
+    <span class="d-spacer"></span>
+    <input type="number" style="width:52px;height:20px;border:1px solid #8c8c8c;font-size:11px;padding:0 3px" value="500" disabled>
+    <span style="color:#555;font-size:11px">ms</span>
+    <span class="ann">1</span>
+    <label class="d-chk"><input type="checkbox" disabled> Loop</label>
+    <span class="ann">2</span>
+    <button class="d-btn" style="height:20px;font-size:11px" disabled>Poll</button>
+    <span class="ann">3</span>
+    <span style="color:#ccc">|</span>
+    <button class="d-btn" style="height:20px;font-size:11px" disabled>Import</button>
+    <span class="ann">4</span>
+    <button class="d-btn" style="height:20px;font-size:11px" disabled>Export</button>
+    <span class="ann">5</span>
+    <button class="d-btn" style="height:20px;font-size:11px" disabled>+ Add</button>
+    <span class="ann">6</span>
+  </div>
+
+  <div style="padding:4px">
+    <!-- basic command row -->
+    <div style="border-bottom:1px solid #f0f0f0;padding:3px">
+      <div style="display:flex;align-items:center;gap:3px;flex-wrap:wrap">
+        <input class="d-inp" style="width:76px" value="Hello" disabled>
+        <span class="ann">7</span>
+        <input class="d-inp" style="flex:1;min-width:80px" value="Hello World" disabled>
+        <span class="ann">8</span>
+        <label class="d-chk" style="font-size:11px"><input type="checkbox" disabled> Modbus</label>
+        <span class="ann">9</span>
+        <label class="d-chk" style="font-size:11px"><input type="checkbox" disabled> Hex</label>
+        <span class="ann">10</span>
+        <label class="d-chk" style="font-size:11px"><input type="checkbox" disabled> +\r\n</label>
+        <span class="ann">11</span>
+        <button class="d-btn green" style="height:20px;font-size:11px" disabled>Send</button>
+        <span class="ann">12</span>
+        <button class="d-btn" style="height:20px;width:24px;font-size:13px;color:#b00;border-color:#d09090;background:linear-gradient(180deg,#fff8f8,#f0e0e0)" disabled>×</button>
+        <span class="ann">13</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <span class="num"><span class="ann">1</span></span><span><strong>Poll delay (ms)</strong> — time to wait between sending each command during a poll cycle. Set to 0 for maximum speed (note: Modbus commands wait for a response before the delay starts).</span>
+  <span class="num"><span class="ann">2</span></span><span><strong>Loop</strong> — when checked, polling repeats indefinitely after finishing all commands. When unchecked, one full pass is made and polling stops.</span>
+  <span class="num"><span class="ann">3</span></span><span><strong>Poll button</strong> — starts sending all commands in sequence. Button turns blue and reads "Stop Poll" while active. Click again to stop. Disabled in MS mode.</span>
+  <span class="num"><span class="ann">4</span></span><span><strong>Import</strong> — opens a file picker to load a <code>.json</code> file of commands (replacing the current list).</span>
+  <span class="num"><span class="ann">5</span></span><span><strong>Export</strong> — downloads the current command list as <code>serial_commands.json</code>.</span>
+  <span class="num"><span class="ann">6</span></span><span><strong>+ Add</strong> — appends a new empty command row. Focus moves to its Name field automatically.</span>
+  <span class="num"><span class="ann">7</span></span><span><strong>Name</strong> — a label for the command. Used as the series name in the graph view and logged alongside data.</span>
+  <span class="num"><span class="ann">8</span></span><span><strong>Value / Command data</strong> — the payload to send. In Hex mode this accepts hex bytes; otherwise it accepts text. In Modbus mode this is the raw PDU (without address byte, without CRC).</span>
+  <span class="num"><span class="ann">9</span></span><span><strong>Modbus checkbox</strong> — enables Modbus master mode for this command. Reveals Type, Size, Order dropdowns and Result field. See <a href="#modbus-master">Modbus Master</a>.</span>
+  <span class="num"><span class="ann">10</span></span><span><strong>Hex</strong> — when checked (without Modbus), sends the value as raw hex bytes. When Modbus is on: Hex checked = RTU (binary + CRC-16), Hex unchecked = ASCII (<code>:HH…LRC\r\n</code>).</span>
+  <span class="num"><span class="ann">11</span></span><span><strong>+\r\n</strong> — appends CR+LF. Only visible when Modbus is off.</span>
+  <span class="num"><span class="ann">12</span></span><span><strong>Send</strong> — sends this specific command immediately.</span>
+  <span class="num"><span class="ann">13</span></span><span><strong>× (Delete)</strong> — removes this command from the list.</span>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="modbus-master">Modbus Master Mode</h2>
+<p>When the <strong>Modbus</strong> checkbox is ticked on a command row, additional controls appear for reading a register value from a slave device.</p>
+
+<div class="diagram">
+  <div style="padding:4px">
+    <div style="border-bottom:1px solid #f0f0f0;padding:3px">
+      <div style="display:flex;align-items:center;gap:3px;flex-wrap:wrap">
+        <input class="d-inp" style="width:76px" value="Temp" disabled>
+        <input class="d-result" value="23.45" disabled>
+        <span class="ann">1</span>
+        <input class="d-inp" style="flex:1;min-width:80px" value="01 03 00 00 00 02" disabled>
+        <span class="ann">2</span>
+        <label class="d-chk" style="font-size:11px"><input type="checkbox" checked disabled> Modbus</label>
+        <label class="d-chk" style="font-size:11px"><input type="checkbox" checked disabled> Hex</label>
+        <span class="ann">3</span>
+        <select class="d-sel" style="height:20px;font-size:11px" disabled><option>Float</option></select>
+        <span class="ann">4</span>
+        <select class="d-sel" style="width:48px;height:20px;font-size:11px" disabled><option>32 bit</option></select>
+        <span class="ann">5</span>
+        <select class="d-sel" style="width:48px;height:20px;font-size:11px" disabled><option>ABCD</option></select>
+        <span class="ann">6</span>
+        <button class="d-btn" style="height:20px;width:24px;font-size:13px;color:#666" disabled>⋯</button>
+        <span class="ann">7</span>
+        <label class="d-chk" style="font-size:11px"><input type="checkbox" disabled> Graph</label>
+        <span class="ann">8</span>
+        <button class="d-btn green" style="height:20px;font-size:11px" disabled>Send</button>
+        <button class="d-btn" style="height:20px;width:24px;font-size:13px;color:#b00;border-color:#d09090;background:linear-gradient(180deg,#fff8f8,#f0e0e0)" disabled>×</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <span class="num"><span class="ann">1</span></span><span><strong>Result field</strong> — shows the decoded value from the last response. Green background = OK, yellow = waiting, red = error. Error messages: <code>CRC err</code>, <code>LRC err</code>, <code>No response</code>, <code>Ex N</code> (Modbus exception N), <code>Short resp</code>, etc.</span>
+  <span class="num"><span class="ann">2</span></span><span><strong>PDU (Command data)</strong> — the Modbus PDU bytes you want to send, in hex, <em>without</em> the slave address byte and <em>without</em> CRC. Example for FC03 read 2 registers starting at 0x0000 on slave 0x01: <code>01 03 00 00 00 02</code>. The app automatically appends the CRC-16 (RTU) or LRC + framing (ASCII).</span>
+  <span class="num"><span class="ann">3</span></span><span><strong>Hex checkbox</strong> — controls RTU vs ASCII mode. <strong>Hex ON = Modbus RTU</strong> (binary frame + CRC-16). <strong>Hex OFF = Modbus ASCII</strong> (<code>:HHHHH…LRC\r\n</code> framing). Must match the slave device's mode.</span>
+  <span class="num"><span class="ann">4</span></span><span><strong>Data type</strong> — how to interpret the raw register bytes: Unsigned, Signed, Float (32-bit only), Double (64-bit only).</span>
+  <span class="num"><span class="ann">5</span></span><span><strong>Size (bits)</strong> — 8 / 16 / 32 / 64. Determines how many bytes are read from the response. Float locks to 32-bit; Double locks to 64-bit automatically.</span>
+  <span class="num"><span class="ann">6</span></span><span><strong>Byte order</strong> — how multi-byte values are arranged in the register response:
+    <table style="margin-top:6px">
+      <tr><th>Code</th><th>Also known as</th><th>Wire bytes → value</th></tr>
+      <tr><td><code>ABCD</code></td><td>Big-endian</td><td>Most significant byte first (standard)</td></tr>
+      <tr><td><code>DCBA</code></td><td>Little-endian</td><td>Least significant byte first</td></tr>
+      <tr><td><code>CDAB</code></td><td>Little-endian byte swap</td><td>Word-swapped: bytes 3,4,1,2</td></tr>
+      <tr><td><code>BADC</code></td><td>Big-endian byte swap</td><td>Byte-swapped within words: 2,1,4,3</td></tr>
+    </table>
+    CDAB and BADC are hidden when size=64 (no agreed standard for 64-bit word-swap).
+  </span>
+  <span class="num"><span class="ann">7</span></span><span><strong>⋯ (Preview)</strong> — shows the exact bytes that will be transmitted when Send is clicked, including CRC/LRC.</span>
+  <span class="num"><span class="ann">8</span></span><span><strong>Graph</strong> — when checked, each successful result value is sent to the graph window (opens automatically on first use). The series is named after the command's Name field. Uncheck to remove the series from the graph.</span>
+</div>
+
+<h3>How Modbus polling works</h3>
+<ol>
+  <li>The Send (or Poll) button sends the framed request.</li>
+  <li>The result field shows <code>…</code> (waiting).</li>
+  <li>Incoming bytes are accumulated. A 200 ms silence timer triggers response parsing.</li>
+  <li>If no bytes arrive within 4 seconds, the result shows <code>No response</code>.</li>
+  <li>The CRC (RTU) or LRC (ASCII) is verified. Any mismatch shows an error.</li>
+  <li>Bytes 3 … N-2 (RTU) or frame payload (ASCII) are passed to the type/size/order decoder.</li>
+</ol>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="modbus-slave">Modbus Slave (MS) Mode</h2>
+<p>Tick the <strong>MS</strong> checkbox in the connection bar to switch the app into Modbus slave mode. In this mode:</p>
+<ul>
+  <li>The app <em>listens</em> for Modbus requests and <em>responds</em> automatically.</li>
+  <li>The Send panel and Poll button are disabled — you are not a master here.</li>
+  <li>All existing extension commands are cleared (the list format changes for slave use).</li>
+  <li>Works over both Serial and MQTT.</li>
+</ul>
+
+<div class="diagram">
+  <div style="padding:4px">
+    <div style="border-bottom:1px solid #f0f0f0;padding:3px">
+      <div style="display:flex;align-items:center;gap:3px;flex-wrap:wrap">
+        <input class="d-inp" style="width:76px" value="Temp" disabled>
+        <span class="ann">1</span>
+        <input class="d-inp d-slave" style="width:80px" value="01 03 0000" disabled>
+        <span class="ann">2</span>
+        <input class="d-inp" style="flex:1;min-width:60px" value="23.45" disabled>
+        <span class="ann">3</span>
+        <label class="d-chk" style="font-size:11px"><input type="checkbox" checked disabled> Hex</label>
+        <span class="ann">4</span>
+        <select class="d-sel" style="height:20px;font-size:11px" disabled><option>Float</option></select>
+        <span class="ann">5</span>
+        <select class="d-sel" style="width:48px;height:20px;font-size:11px" disabled><option>32 bit</option></select>
+        <span class="ann">6</span>
+        <select class="d-sel" style="width:48px;height:20px;font-size:11px" disabled><option>ABCD</option></select>
+        <span class="ann">7</span>
+        <button class="d-btn" style="height:20px;width:24px;font-size:13px;color:#b00;border-color:#d09090;background:linear-gradient(180deg,#fff8f8,#f0e0e0)" disabled>×</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <span class="num"><span class="ann">1</span></span><span><strong>Name</strong> — label for this register (optional).</span>
+  <span class="num"><span class="ann">2</span></span><span><strong>Pattern (purple input)</strong> — the request pattern this entry responds to, as a hex string: <code>ADDR FC RRRR</code> (slave address, function code, register address). Spaces are ignored. Examples:<br>
+    <code>01030000</code> — slave 01, FC03, register 0x0000<br>
+    <code>01 03 0001</code> — slave 01, FC03, register 0x0001<br>
+    Multiple entries can share the same ADDR+FC but different register addresses — multi-register requests are assembled from all matching entries.
+  </span>
+  <span class="num"><span class="ann">3</span></span><span><strong>Value</strong> — the numeric value to return when polled. Type a decimal or hex number here; it is encoded according to Type, Size, and Order before responding. Update this at any time — the slave always responds with the current value in the field.</span>
+  <span class="num"><span class="ann">4</span></span><span><strong>Hex checkbox</strong> — <strong>Hex ON = RTU</strong> (expects binary frames with CRC-16). <strong>Hex OFF = ASCII</strong> (expects <code>:HH…LRC\r\n</code> framing). Must match the master's mode.</span>
+  <span class="num"><span class="ann">5</span></span><span><strong>Type</strong> — data type of the value: Unsigned / Signed / Float / Double.</span>
+  <span class="num"><span class="ann">6</span></span><span><strong>Size (bits)</strong> — determines how many bytes the encoded value occupies (8/16/32/64). A 32-bit value spans 2 Modbus registers; 64-bit spans 4.</span>
+  <span class="num"><span class="ann">7</span></span><span><strong>Byte order</strong> — same ABCD/DCBA/CDAB/BADC choices as master mode, applied when encoding the response bytes.</span>
+</div>
+
+<h3>Multi-register requests</h3>
+<p>If a master asks for qty=4 registers (0x0000–0x0003) and you have two slave entries — one at register 0x0000 (32-bit Float) and one at 0x0002 (32-bit Signed) — the app combines both into a single 8-byte response automatically. Registers that have no matching entry are filled with zeros.</p>
+
+<h3>Show TX in slave mode</h3>
+<p>Enable <strong>Show TX</strong> in the Receive panel to see both the incoming request (<code>→</code>) and the slave's reply (<code>←</code>) in the receive area.</p>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="poll">Poll &amp; Loop</h2>
+<p>Polling sends all extension commands one by one with a configurable delay between each.</p>
+<ul>
+  <li>Click <strong>Poll</strong> to start. It highlights and reads "Stop Poll".</li>
+  <li>For Modbus commands, the poller waits for the response (or 4 s timeout) before moving to the next command.</li>
+  <li>For non-Modbus commands, the inter-command delay is applied immediately after sending.</li>
+  <li>If <strong>Loop</strong> is unchecked, polling stops after one full pass. If checked, it repeats until you click Stop Poll.</li>
+  <li>Polling stops automatically if the connection drops.</li>
+  <li>Polling is disabled in MS (slave) mode.</li>
+</ul>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="import-export">Import / Export Commands</h2>
+<p>Commands can be saved to and loaded from a JSON file, allowing you to share configurations between computers or maintain different command sets per project.</p>
+
+<h3>Export</h3>
+<p>Click <strong>Export</strong> in the Extension Commands header. A file named <code>serial_commands.json</code> is downloaded.</p>
+
+<h3>Import</h3>
+<p>Click <strong>Import</strong> and select a previously exported <code>.json</code> file. The current command list is <strong>replaced</strong> by the file contents. Invalid fields are silently substituted with defaults.</p>
+
+<h3>JSON format</h3>
+<p>Each command is an object in the array:</p>
+<pre style="background:#1e2a3a;color:#cdd7e5;padding:12px;border-radius:4px;font-size:11px;overflow-x:auto;margin:8px 0">{
+  "name":         "Temperature",   // display label
+  "value":        "01 03 00 00 00 02",  // hex PDU or text payload
+  "isHex":        true,            // Hex checkbox state
+  "appendNL":     false,           // +\r\n checkbox
+  "modbus":       true,            // Modbus master mode
+  "mbType":       "float",         // "unsigned"|"signed"|"float"|"double"
+  "mbSize":       32,              // 8|16|32|64
+  "mbOrder":      "ABCD",          // "ABCD"|"DCBA"|"CDAB"|"BADC"
+  "graph":        false,           // whether to plot on graph
+  "graphColor":   "hsl(210,70%,60%)", // series colour
+  "slavePattern": "01030000"       // slave mode pattern (addr+fc+reg hex)
+}</pre>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="graph">Graph</h2>
+<p>Tick the <strong>Graph</strong> checkbox on any Modbus master command. A separate graph window opens automatically and plots the decoded value over time.</p>
+
+<h3>Graph controls</h3>
+<table>
+  <tr><th>Action</th><th>Effect</th></tr>
+  <tr><td>Left-click + drag</td><td>Pan (auto-fit turns off)</td></tr>
+  <tr><td>Scroll wheel</td><td>Zoom in/out centered on cursor (auto-fit turns off)</td></tr>
+  <tr><td>Right-click</td><td>Context menu: Fit to Window, Zoom In, Zoom Out, Delete a series, Export CSV</td></tr>
+</table>
+
+<ul style="margin-top:8px">
+  <li><strong>Auto-fit</strong> is on by default — the view expands right as new data arrives.</li>
+  <li>After panning or zooming, auto-fit turns off. Use <strong>Fit to Window</strong> from the right-click menu to reset it.</li>
+  <li>Multiple series (one per command) are plotted with different colours. Each colour is randomly assigned when the Graph checkbox is first ticked.</li>
+  <li>Closing the graph window removes all series. Re-opening it via the Graph checkbox re-populates all currently checked series with their latest values.</li>
+  <li><strong>Export CSV</strong> in the context menu downloads a timestamped CSV of all visible series data.</li>
+</ul>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="status-bar">Status Bar</h2>
+<p>The thin bar at the very bottom of the app.</p>
+
+<div class="diagram">
+  <div class="status">
+    <span class="d-dot on"></span>
+    <span class="ann">1</span>
+    <span>Connected</span>
+    <span class="ann">2</span>
+    <span style="color:#c0c0c0">|</span>
+    <span>RX: 4.2 KB</span>
+    <span class="ann">3</span>
+    <span style="color:#c0c0c0">|</span>
+    <span>TX: 312 B</span>
+    <span class="ann">4</span>
+    <span style="flex:1"></span>
+    <span style="color:#666;font-style:italic">/dev/ttyUSB0 · 9600 8N1</span>
+    <span class="ann">5</span>
+  </div>
+</div>
+
+<div class="legend">
+  <span class="num"><span class="ann">1</span></span><span><strong>Connection dot</strong> — grey = disconnected, green = connected, red = connection lost after having been connected.</span>
+  <span class="num"><span class="ann">2</span></span><span><strong>Status text</strong> — "Disconnected", "Connected", or "MQTT · &lt;host&gt;" depending on the active transport.</span>
+  <span class="num"><span class="ann">3</span></span><span><strong>RX counter</strong> — total bytes received in this session. Resets when you click Clear.</span>
+  <span class="num"><span class="ann">4</span></span><span><strong>TX counter</strong> — total bytes sent in this session.</span>
+  <span class="num"><span class="ann">5</span></span><span><strong>Port info</strong> — shows the active port name and serial parameters, or "No Port" when disconnected.</span>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="tips">Tips &amp; Common Tasks</h2>
+
+<h3>Sending AT commands</h3>
+<p>Leave Hex unchecked, tick <strong>+\r\n</strong>, type your command (e.g. <code>AT+GMR</code>), and click Send.</p>
+
+<h3>Sending raw hex bytes</h3>
+<p>Tick Hex in the Send panel, type hex pairs (e.g. <code>A5 01 FF</code>), click Send. Spaces are optional — the field formats them automatically.</p>
+
+<h3>Modbus RTU quick-start</h3>
+<ol>
+  <li>Add a command, name it (e.g. "Temperature").</li>
+  <li>In the value field enter the PDU: <code>01 03 00 00 00 02</code> (slave 1, FC3, reg 0, qty 2).</li>
+  <li>Tick <strong>Modbus</strong>, then tick <strong>Hex</strong> (= RTU mode).</li>
+  <li>Set Type=Float, Size=32, Order=ABCD (adjust to match your device).</li>
+  <li>Click Send — the result field will show the decoded value.</li>
+</ol>
+
+<h3>Modbus ASCII quick-start</h3>
+<p>Same as RTU but leave <strong>Hex unchecked</strong>. The app automatically wraps the PDU in <code>:HH…LRC\r\n</code> framing.</p>
+
+<h3>Clearing a retained MQTT message</h3>
+<ol>
+  <li>Connect to MQTT.</li>
+  <li>Tick the <strong>Retain</strong> checkbox.</li>
+  <li>Set the Pub topic to the exact topic that has the retained message.</li>
+  <li>Send an <em>empty</em> message (leave the Send field blank and click Send). This publishes an empty retained payload, which clears the retained message on the broker.</li>
+</ol>
+
+<h3>Testing without hardware (loopback)</h3>
+<p>For serial: connect a USB-to-serial adapter and short the TX and RX pins together — everything you send will come back. For MQTT: set Pub and Sub to the same topic — you will receive your own messages back.</p>
+
+<h3>Settings that always reset on reload</h3>
+<ul>
+  <li><strong>MQTT checkbox</strong> — always starts unchecked (MQTT bar hidden).</li>
+  <li><strong>Hex (Receive)</strong> — always starts unchecked.</li>
+  <li><strong>Frame Break</strong> — always starts unchecked.</li>
+  <li><strong>Time</strong> — always starts unchecked.</li>
+</ul>
+<p>All other settings — baud, serial parameters, Hex (Send), +\r\n, Show TX, Modbus Slave (MS), MQTT credentials, topics, QoS, Retain, and Poll delay — are remembered in localStorage.</p>
+
+<h3>Log file format</h3>
+<p>Each line is prefixed with a <code>[HH:MM:SS.mmm]</code> timestamp. Frame-break separators appear as <code>── HH:MM:SS.mmm ──</code>. Session start/end markers are written automatically.</p>
+
+</div><!-- /.content -->
+</body>
+</html>

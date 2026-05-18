@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Serial Debug Assistant</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Connection Bar -->
+  <div class="conn-bar">
+    <div class="conn-group">
+      <span class="conn-label">Port:</span>
+      <span id="portName" class="port-name">—</span>
+    </div>
+    <div class="conn-sep"></div>
+    <label class="chk-label conn-label"><input type="checkbox" id="chkMqtt"> MQTT</label>
+    <label class="chk-label conn-label"><input type="checkbox" id="chkSlave"> MS</label>
+    <div class="conn-sep"></div>
+    <div class="conn-group">
+      <label class="conn-label" for="baud">Baud</label>
+      <select id="baud">
+        <option>300</option>
+        <option>1200</option>
+        <option>2400</option>
+        <option>4800</option>
+        <option selected>9600</option>
+        <option>19200</option>
+        <option>38400</option>
+        <option>57600</option>
+        <option>115200</option>
+        <option>230400</option>
+        <option>460800</option>
+        <option>921600</option>
+      </select>
+    </div>
+    <div class="conn-group">
+      <label class="conn-label" for="dataBits">Data</label>
+      <select id="dataBits" style="width:46px">
+        <option>7</option>
+        <option selected>8</option>
+      </select>
+    </div>
+    <div class="conn-group">
+      <label class="conn-label" for="parity">Parity</label>
+      <select id="parity" style="width:60px">
+        <option value="none" selected>None</option>
+        <option value="even">Even</option>
+        <option value="odd">Odd</option>
+      </select>
+    </div>
+    <div class="conn-group">
+      <label class="conn-label" for="stopBits">Stop</label>
+      <select id="stopBits" style="width:46px">
+        <option value="1" selected>1</option>
+        <option value="2">2</option>
+      </select>
+    </div>
+    <div class="conn-sep"></div>
+    <button id="btnOpen" class="btn btn-open">Open</button>
+    <div class="spacer"></div>
+    <button id="btnHelp" class="btn btn-sm" title="Help">?</button>
+  </div>
+
+  <!-- MQTT Credentials Bar -->
+  <div id="mqttBar" class="conn-bar mqtt-bar" style="display:none">
+    <select id="mqttProto" style="width:68px">
+      <option value="ws://">ws://</option>
+      <option value="wss://">wss://</option>
+    </select>
+    <input type="text" id="mqttHost" placeholder="host or IP" style="width:150px">
+    <span class="conn-label">:</span>
+    <input type="number" id="mqttPort" placeholder="8083" style="width:54px" min="1" max="65535">
+    <input type="text" id="mqttPath" placeholder="/mqtt" style="width:60px">
+    <div class="conn-sep"></div>
+    <span class="conn-label">User</span>
+    <input type="text" id="mqttUser" placeholder="username" style="width:80px">
+    <span class="conn-label">Pass</span>
+    <input type="password" id="mqttPass" placeholder="password" style="width:80px">
+    <div class="conn-sep"></div>
+    <span class="conn-label">Pub</span>
+    <input type="text" id="mqttSendTopic" placeholder="O/imei/rec" style="width:130px">
+    <span class="conn-label">Sub</span>
+    <input type="text" id="mqttRecvTopic" placeholder="O/imei/out" style="width:130px">
+    <span class="conn-label">Status</span>
+    <input type="text" id="mqttStatusTopic" placeholder="O/imei/status" style="width:130px">
+    <div class="conn-sep"></div>
+    <span class="conn-label">QoS</span>
+    <select id="mqttQos" style="width:46px">
+      <option value="0" selected>0</option>
+      <option value="1">1</option>
+      <option value="2">2</option>
+    </select>
+    <label class="chk-label conn-label"><input type="checkbox" id="mqttRetain"> Retain</label>
+    <div class="conn-sep"></div>
+    <button id="btnMqttConnect" class="btn btn-open" style="min-width:90px">Connect</button>
+    <div class="conn-sep" id="mqttStatusSep" style="display:none"></div>
+    <span id="mqttDevDot" class="conn-dot" style="display:none"></span>
+    <span id="mqttDevInfo" style="display:none; font-size:11px; white-space:nowrap;"></span>
+  </div>
+
+  <!-- Main Area -->
+  <div class="main">
+
+    <!-- Left Column: Receive + Send -->
+    <div class="left-col">
+
+      <!-- Receive Panel -->
+      <div class="panel rx-panel">
+        <div class="panel-bar">
+          <span class="panel-title">Receive</span>
+          <label class="chk-label"><input type="checkbox" id="rxHex"> Hex</label>
+          <label class="chk-label"><input type="checkbox" id="showTx"> Show TX</label>
+          <label class="chk-label"><input type="checkbox" id="showTs"> Time</label>
+          <span class="bar-sep">|</span>
+          <label class="chk-label"><input type="checkbox" id="autoBreak"> Frame Break</label>
+          <input type="number" id="breakMs" value="500" min="1" max="60000" class="num-input">
+          <span class="unit">ms</span>
+          <span class="bar-sep">|</span>
+          <button id="btnLog" class="btn btn-sm">Log</button>
+          <label class="chk-label"><input type="checkbox" id="chkLogAppend"> Append</label>
+          <span id="logFileName" class="log-file-name"></span>
+          <div class="spacer"></div>
+          <button id="btnPause" class="btn">Pause</button>
+          <button id="btnClearRx" class="btn">Clear</button>
+        </div>
+        <div id="rxArea" class="rx-area"></div>
+      </div>
+
+      <!-- Send Panel -->
+      <div class="panel tx-panel">
+        <div class="panel-bar">
+          <span class="panel-title">Send</span>
+          <label class="chk-label"><input type="checkbox" id="txHex"> Hex</label>
+          <label class="chk-label"><input type="checkbox" id="appendNL"> +\r\n</label>
+        </div>
+        <div class="tx-row">
+          <input type="text" id="txInput" class="tx-input" placeholder="Data to send…" autocomplete="off" spellcheck="false">
+          <button id="btnSend" class="btn btn-send">Send</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right Column: Extension Commands -->
+    <div class="panel cmd-panel">
+      <div class="panel-bar">
+        <span class="panel-title">Extension Commands</span>
+        <div class="spacer"></div>
+        <input type="number" id="pollDelay" value="500" min="0" max="60000" class="num-input" style="width:55px">
+        <span class="unit">ms</span>
+        <label class="chk-label"><input type="checkbox" id="pollLoop"> Loop</label>
+        <button id="btnPoll" class="btn btn-sm">Poll</button>
+        <span class="bar-sep">|</span>
+        <button id="btnImportCmds" class="btn btn-sm">Import</button>
+        <button id="btnExportCmds" class="btn btn-sm">Export</button>
+        <button id="btnAddCmd" class="btn btn-sm">+ Add</button>
+      </div>
+      <div id="cmdList" class="cmd-list"></div>
+      <input type="file" id="importFileInput" accept=".json" style="display:none">
+    </div>
+
+  </div>
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <span id="connDot" class="conn-dot"></span>
+    <span id="connStatus">Disconnected</span>
+    <span class="bar-sep">|</span>
+    <span id="rxStat">RX: 0 B</span>
+    <span class="bar-sep">|</span>
+    <span id="txStat">TX: 0 B</span>
+    <div class="spacer"></div>
+    <span id="portInfo" class="port-info">No Port</span>
+  </div>
+
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/serial.js"></script>
+  <script src="js/mqtt.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

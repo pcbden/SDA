@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Graph — Serial Debug Assistant</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0f1117;
+      color: #ccc;
+      font-family: 'Segoe UI', sans-serif;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      user-select: none;
+    }
+    #chartCanvas {
+      flex: 1;
+      display: block;
+      cursor: crosshair;
+      min-height: 0;
+    }
+    #legend {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 14px;
+      padding: 5px 12px;
+      background: #0a0c12;
+      border-top: 1px solid #2a2a3a;
+      min-height: 28px;
+      flex-shrink: 0;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #bbb;
+    }
+    .legend-swatch {
+      width: 28px;
+      height: 3px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+    #ctxMenu {
+      position: fixed;
+      background: #1e2030;
+      border: 1px solid #3a3a5a;
+      border-radius: 4px;
+      padding: 4px 0;
+      min-width: 170px;
+      z-index: 999;
+      box-shadow: 3px 4px 12px rgba(0,0,0,0.6);
+      display: none;
+      font-size: 12px;
+    }
+    .ctx-item {
+      padding: 5px 16px;
+      cursor: pointer;
+      color: #ddd;
+      white-space: nowrap;
+    }
+    .ctx-item:hover { background: #2e3a5a; }
+    .ctx-item.danger { color: #ff7070; }
+    .ctx-item.danger:hover { background: #4a1a1a; }
+    .ctx-sep { height: 1px; background: #2a2a4a; margin: 3px 0; }
+    .ctx-label { padding: 3px 16px; color: #666; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+  </style>
+</head>
+<body>
+<canvas id="chartCanvas"></canvas>
+<div id="legend"></div>
+<div id="ctxMenu"></div>
+<script>
+'use strict';
+
+const canvas  = document.getElementById('chartCanvas');
+const gctx    = canvas.getContext('2d');
+const legendEl = document.getElementById('legend');
+const ctxMenu  = document.getElementById('ctxMenu');
+
+// ── Channel ────────────────────────────────────────────
+const ch = new BroadcastChannel('sda_graph');
+
+window.addEventListener('beforeunload', () => {
+  ch.postMessage({ type: 'graph_closed' });
+});
+
+ch.addEventListener('message', e => {
+  const m = e.data;
+  if (m.type === 'data')          { addPoint(m.name, m.color, m.t, m.v); render(); }
+  else if (m.type === 'series_remove') { removeSeries(m.name); }
+});
+
+// ── Data ───────────────────────────────────────────────
+// series: Map<name, {color, points:[{t,v}]}>
+const series = new Map();
+
+function randomHue(name) {
+  // deterministic hue from name so same name always same colour
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xFFFF;
+  return h % 360;
+}
+
+function addPoint(name, color, t, v) {
+  if (!series.has(name)) {
+    series.set(name, { color, points: [] });
+    renderLegend();
+  }
+  series.get(name).points.push({ t, v });
+  if (autoFit) fitAll();
+  else expandBounds(t, v);
+}
+
+function removeSeries(name) {
+  series.delete(name);
+  renderLegend();
+  if (autoFit && series.size > 0) fitAll();
+  render();
+}
+
+// ── View ───────────────────────────────────────────────
+let view = { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };
+let autoFit = true;
+let hasData = false;
+
+function expandBounds(t, v) {
+  if (!hasData) {
+    view = { xMin: t - 500, xMax: t + 500, yMin: v - 1, yMax: v + 1 };
+    hasData = true;
+    return;
+  }
+  if (t < view.xMin) view.xMin = t;
+  if (t > view.xMax) view.xMax = t;
+  const pad = Math.abs(v) * 0.05 + 0.1;
+  if (v - pad < view.yMin) view.yMin = v - pad;
+  if (v + pad > view.yMax) view.yMax = v + pad;
+}
+
+function fitAll() {
+  const allT = [], allV = [];
+  for (const s of series.values()) for (const p of s.points) { allT.push(p.t); allV.push(p.v); }
+  if (!allT.length) return;
+  const tMin = Math.min(...allT), tMax = Math.max(...allT);
+  const vMin = Math.min(...allV), vMax = Math.max(...allV);
+  const tr = tMax - tMin || 2000, vr = vMax - vMin || 2;
+  view = { xMin: tMin - tr*0.04, xMax: tMax + tr*0.04, yMin: vMin - vr*0.12, yMax: vMax + vr*0.12 };
+  hasData = true;
+}
+
+// ── Layout ─────────────────────────────────────────────
+const PAD = { l: 70, r: 20, t: 24, b: 38 };
+const pw = () => canvas.width  - PAD.l - PAD.r;
+const ph = () => canvas.height - PAD.t - PAD.b;
+
+function d2p(t, v) {
+  const xr = view.xMax - view.xMin || 1, yr = view.yMax - view.yMin || 1;
+  return { x: PAD.l + (t - view.xMin)/xr * pw(), y: PAD.t + (1-(v - view.yMin)/yr) * ph() };
+}
+function p2d(px, py) {
+  const xr = view.xMax - view.xMin || 1, yr = view.yMax - view.yMin || 1;
+  return { t: view.xMin + (px - PAD.l)/pw() * xr, v: view.yMin + (1-(py - PAD.t)/ph()) * yr };
+}
+
+// ── Render ─────────────────────────────────────────────
+function render() {
+  const W = canvas.width, H = canvas.height;
+  gctx.clearRect(0, 0, W, H);
+  gctx.fillStyle = '#0f1117';
+  gctx.fillRect(0, 0, W, H);
+
+  if (!hasData || series.size === 0) {
+    gctx.fillStyle = '#444';
+    gctx.font = '14px Segoe UI';
+    gctx.textAlign = 'center';
+    gctx.fillText('Waiting for data…', W/2, H/2);
+    return;
+  }
+
+  const PW = pw(), PH = ph();
+
+  // plot bg
+  gctx.fillStyle = '#0a0d16';
+  gctx.fillRect(PAD.l, PAD.t, PW, PH);
+
+  // grid + axes
+  const yTicks = niceTicks(view.yMin, view.yMax, 6);
+  const xTicks = niceTicks(view.xMin, view.xMax, Math.max(4, Math.floor(PW / 90)));
+
+  gctx.strokeStyle = '#1e2235';
+  gctx.lineWidth = 1;
+
+  for (const v of yTicks) {
+    const { y } = d2p(0, v);
+    if (y < PAD.t - 1 || y > PAD.t + PH + 1) continue;
+    gctx.beginPath(); gctx.moveTo(PAD.l, y); gctx.lineTo(PAD.l + PW, y); gctx.stroke();
+  }
+  for (const t of xTicks) {
+    const { x } = d2p(t, 0);
+    if (x < PAD.l - 1 || x > PAD.l + PW + 1) continue;
+    gctx.beginPath(); gctx.moveTo(x, PAD.t); gctx.lineTo(x, PAD.t + PH); gctx.stroke();
+  }
+
+  // axis labels
+  gctx.fillStyle = '#556';
+  gctx.font = '11px Segoe UI';
+  gctx.textAlign = 'right';
+  for (const v of yTicks) {
+    const { y } = d2p(0, v);
+    if (y < PAD.t - 1 || y > PAD.t + PH + 1) continue;
+    gctx.fillText(fmtNum(v), PAD.l - 5, y + 4);
+  }
+  gctx.textAlign = 'center';
+  for (const t of xTicks) {
+    const { x } = d2p(t, 0);
+    if (x < PAD.l - 1 || x > PAD.l + PW + 1) continue;
+    gctx.fillText(fmtTime(t), x, PAD.t + PH + 16);
+  }
+
+  // axis border
+  gctx.strokeStyle = '#334';
+  gctx.lineWidth = 1;
+  gctx.strokeRect(PAD.l, PAD.t, PW, PH);
+
+  // clip to plot area
+  gctx.save();
+  gctx.beginPath();
+  gctx.rect(PAD.l, PAD.t, PW, PH);
+  gctx.clip();
+
+  // series lines + dots
+  for (const [, s] of series) {
+    if (!s.points.length) continue;
+    gctx.strokeStyle = s.color;
+    gctx.lineWidth = 2;
+    gctx.beginPath();
+    let first = true;
+    for (const p of s.points) {
+      const { x, y } = d2p(p.t, p.v);
+      first ? gctx.moveTo(x, y) : gctx.lineTo(x, y);
+      first = false;
+    }
+    gctx.stroke();
+    gctx.fillStyle = s.color;
+    for (const p of s.points) {
+      const { x, y } = d2p(p.t, p.v);
+      gctx.beginPath(); gctx.arc(x, y, 3, 0, Math.PI*2); gctx.fill();
+    }
+  }
+
+  gctx.restore();
+
+  // min/max overlay (top-left of plot)
+  gctx.font = '10px Segoe UI';
+  gctx.textAlign = 'left';
+  let iy = PAD.t + 13;
+  for (const [name, s] of series) {
+    if (!s.points.length) continue;
+    const vals = s.points.map(p => p.v);
+    const mn = Math.min(...vals), mx = Math.max(...vals);
+    gctx.fillStyle = s.color + 'cc';
+    gctx.fillText(`${name}  min ${fmtNum(mn)}  max ${fmtNum(mx)}`, PAD.l + 6, iy);
+    iy += 13;
+  }
+}
+
+// ── Tick helpers ───────────────────────────────────────
+function niceTicks(min, max, n) {
+  const range = max - min || 1;
+  const rough = range / n;
+  const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+  const norm = rough / mag;
+  const step = mag * (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10);
+  const start = Math.ceil(min / step) * step;
+  const ticks = [];
+  for (let v = start; v <= max + step * 0.01; v += step)
+    ticks.push(parseFloat(v.toPrecision(10)));
+  return ticks;
+}
+
+function fmtNum(v) {
+  if (Math.abs(v) >= 1e6 || (Math.abs(v) < 1e-3 && v !== 0)) return v.toExponential(2);
+  return parseFloat(v.toPrecision(6)).toString();
+}
+
+function fmtTime(ms) {
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+}
+
+// ── Legend ─────────────────────────────────────────────
+function renderLegend() {
+  legendEl.innerHTML = '';
+  for (const [name, s] of series) {
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    const sw = document.createElement('div');
+    sw.className = 'legend-swatch';
+    sw.style.background = s.color;
+    const lbl = document.createElement('span');
+    lbl.textContent = name;
+    item.append(sw, lbl);
+    legendEl.appendChild(item);
+  }
+}
+
+// ── Pan / Zoom ─────────────────────────────────────────
+let dragging = false, dragStart = null, dragView = null;
+
+canvas.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  dragging = true;
+  dragStart = { x: e.clientX, y: e.clientY };
+  dragView = { ...view };
+  canvas.style.cursor = 'grabbing';
+});
+
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  const dx = e.clientX - dragStart.x, dy = e.clientY - dragStart.y;
+  const xr = dragView.xMax - dragView.xMin, yr = dragView.yMax - dragView.yMin;
+  view.xMin = dragView.xMin - dx / pw() * xr;
+  view.xMax = dragView.xMax - dx / pw() * xr;
+  view.yMin = dragView.yMin + dy / ph() * yr;
+  view.yMax = dragView.yMax + dy / ph() * yr;
+  autoFit = false;
+  render();
+});
+
+window.addEventListener('mouseup', () => {
+  dragging = false;
+  canvas.style.cursor = 'crosshair';
+});
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (!hasData) return;
+  const rect = canvas.getBoundingClientRect();
+  const { t: pt, v: pv } = p2d(e.clientX - rect.left, e.clientY - rect.top);
+  const f = e.deltaY > 0 ? 1.15 : 1/1.15;
+  view.xMin = pt + (view.xMin - pt) * f;
+  view.xMax = pt + (view.xMax - pt) * f;
+  view.yMin = pv + (view.yMin - pv) * f;
+  view.yMax = pv + (view.yMax - pv) * f;
+  autoFit = false;
+  render();
+}, { passive: false });
+
+// ── Context Menu ───────────────────────────────────────
+canvas.addEventListener('contextmenu', e => { e.preventDefault(); showMenu(e.clientX, e.clientY); });
+
+function showMenu(mx, my) {
+  ctxMenu.innerHTML = '';
+  const item = (label, cls, fn) => {
+    const el = document.createElement('div');
+    el.className = 'ctx-item' + (cls ? ' '+cls : '');
+    el.textContent = label;
+    el.addEventListener('mousedown', e => { e.stopPropagation(); hideMenu(); fn(); });
+    ctxMenu.appendChild(el);
+  };
+  const sep = () => { const el = document.createElement('div'); el.className='ctx-sep'; ctxMenu.appendChild(el); };
+  const lbl = t => { const el = document.createElement('div'); el.className='ctx-label'; el.textContent=t; ctxMenu.appendChild(el); };
+
+  item('Fit to Window', '', () => { fitAll(); autoFit = true; render(); });
+  item('Zoom In',       '', () => zoom(0.72));
+  item('Zoom Out',      '', () => zoom(1.38));
+
+  if (series.size > 0) {
+    sep();
+    lbl('Delete line');
+    for (const [name] of series) {
+      item(name, 'danger', () => {
+        series.delete(name);
+        renderLegend();
+        if (autoFit && series.size > 0) fitAll();
+        render();
+        ch.postMessage({ type: 'delete_series', name });
+      });
+    }
+    sep();
+    item('Export CSV', '', exportCSV);
+  }
+
+  ctxMenu.style.display = 'block';
+  const mw = ctxMenu.offsetWidth, mh = ctxMenu.offsetHeight;
+  ctxMenu.style.left = Math.min(mx, window.innerWidth  - mw - 4) + 'px';
+  ctxMenu.style.top  = Math.min(my, window.innerHeight - mh - 4) + 'px';
+}
+
+function hideMenu() { ctxMenu.style.display = 'none'; }
+document.addEventListener('mousedown', hideMenu);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') hideMenu(); });
+
+function zoom(f) {
+  if (!hasData) return;
+  const cx = (view.xMin+view.xMax)/2, cy = (view.yMin+view.yMax)/2;
+  const hw = (view.xMax-view.xMin)/2*f, hh = (view.yMax-view.yMin)/2*f;
+  view = { xMin: cx-hw, xMax: cx+hw, yMin: cy-hh, yMax: cy+hh };
+  autoFit = false;
+  render();
+}
+
+// ── Export CSV ─────────────────────────────────────────
+function exportCSV() {
+  const rows = ['Timestamp,Time,Series,Value'];
+  for (const [name, s] of series)
+    for (const p of s.points)
+      rows.push(`${p.t},${fmtTime(p.t)},"${name}",${p.v}`);
+  const blob = new Blob([rows.join('\r\n')], { type: 'text/csv' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'graph.csv' });
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+// ── Resize ─────────────────────────────────────────────
+function resize() { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; render(); }
+new ResizeObserver(resize).observe(canvas);
+resize();
+
+// Tell the main tab we're ready to receive data
+ch.postMessage({ type: 'graph_ready' });
+</script>
+</body>
+</html>
