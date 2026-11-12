@@ -10,6 +10,8 @@ A browser-based serial port and MQTT debug tool. Send/receive raw data, poll Mod
 - **Graph** — live plot of Modbus values in a separate tab with pan/zoom and CSV export
 - **Extension commands** — save, import/export, and poll a list of commands
 - **Logging** — stream received data to a local file in real time
+- **Live serial settings** — change baud/data/parity/stop while the port is open; line errors from a mismatched baud are counted instead of closing the port
+- **Mobile layout** — on phones/narrow windows settings are tucked behind toggle buttons; commands collapse to name + result + Send. MQTT works in any browser; Chrome on Android supports Bluetooth serial
 
 ## Requirements
 

@@ -260,11 +260,15 @@
   <span class="num"><span class="ann">5</span></span><span><strong>Data bits</strong> — 7 or 8. Almost always 8.</span>
   <span class="num"><span class="ann">6</span></span><span><strong>Parity</strong> — None / Even / Odd. Must match the device.</span>
   <span class="num"><span class="ann">7</span></span><span><strong>Stop bits</strong> — 1 or 2. Must match the device.</span>
-  <span class="num"><span class="ann">8</span></span><span><strong>Open / Close button</strong> — click to open a port picker (a browser dialog listing available USB serial devices). After selecting, the port opens and the button turns red and reads "Close". Click again to disconnect. All serial settings are locked while the port is open.</span>
+  <span class="num"><span class="ann">8</span></span><span><strong>Open / Close button</strong> — click to open a port picker (a browser dialog listing available USB serial devices). After selecting, the port opens and the button turns red and reads "Close". Click again to disconnect.</span>
   <span class="num"><span class="ann">9</span></span><span><strong>? (Help)</strong> — opens this help page in a new window.</span>
 </div>
 
-<div class="note">Serial settings (Baud, Data, Parity, Stop) are disabled while connected. Close the port first if you need to change them.</div>
+<div class="note">Serial settings (Baud, Data, Parity, Stop) can be changed while the port is open. The same port is closed and reopened with the new settings automatically (no port picker), and a <code>Port settings → 115200 8N1</code> line is added to the receive area.</div>
+
+<div class="note">If the settings don't match the device (e.g. port at 9600, device sending at 115200), the adapter reports framing/break/parity errors. The port stays open: the status bar shows <strong>⚠ N line errors</strong> and the receive area shows a warning about every 3 s. Change the baud rate to fix it, and click the counter to reset it. The port closes only if the device is really gone (unplugged); after that, Open works again without replugging.</div>
+
+<div class="note"><strong>Phones and narrow windows:</strong> the layout stacks vertically and settings are tucked behind the <strong>sliders</strong> buttons: port settings in the top bar, receive options, poll/import options, and each command's configuration. A collapsed command shows only its name, Modbus result and Send. Without Web Serial (iOS, Firefox), the page still works in MQTT mode. Chrome on Android supports Bluetooth serial ports.</div>
 
 <!-- ══════════════════════════════════════════════════════ -->
 <h2 id="mqtt-bar">MQTT Settings Bar</h2>
@@ -363,7 +367,6 @@
   <div class="d-area">
     <span class="d-rx-ts">[14:23:01.456] </span>OK+CMGS: 3<br>
     <span class="d-tx-echo">→ AT+CMGS="0901234567"</span><br>
-    <span style="color:#999;font-size:10px;font-style:italic;display:block;text-align:center;border-top:1px dashed #ddd;border-bottom:1px dashed #ddd;margin:2px 0">── 14:23:02.001 ──</span>
     <span class="d-rx-ts">[14:23:02.110] </span>+CMGS: 7
   </div>
 </div>
@@ -372,7 +375,7 @@
   <span class="num"><span class="ann">1</span></span><span><strong>Hex mode</strong> — when checked, incoming bytes are shown as uppercase hex pairs separated by spaces (e.g. <code>01 03 02 00 1A</code>). When unchecked, bytes are decoded as UTF-8 text. This also controls how TX echoes are displayed.</span>
   <span class="num"><span class="ann">2</span></span><span><strong>Show TX</strong> — when checked, every frame you send appears in the receive area in <span style="color:#0060a8">blue</span> prefixed with <code>→</code>. Slave responses appear with <code>←</code>. Useful to see the full conversation in one place.</span>
   <span class="num"><span class="ann">3</span></span><span><strong>Time</strong> — prepends a <code>[HH:MM:SS.mmm]</code> timestamp to each message. Starts unchecked on every load.</span>
-  <span class="num"><span class="ann">4</span></span><span><strong>Frame Break</strong> — draws a dashed separator line in the receive area after a period of silence. Helps visually separate individual frames or responses. Starts unchecked on every load.</span>
+  <span class="num"><span class="ann">4</span></span><span><strong>Frame Break</strong> — after a period of silence (the ms value), the next data starts on a new line. Nothing is added if the data already ended with a newline. Helps separate individual frames or responses. Turn on <strong>Time</strong> if you also want timestamps. Starts unchecked on every load.</span>
   <span class="num"><span class="ann">5</span></span><span><strong>Break delay (ms)</strong> — how many milliseconds of silence before the separator appears. Default 500 ms.</span>
   <span class="num"><span class="ann">6</span></span><span><strong>Log button</strong> — opens a system file-save dialog to choose a log file. All received data (and TX echoes if Show TX is on) is appended to the file in real time. Click again ("Stop Log") to close the file. Chrome/Edge only — Firefox does not support <code>showSaveFilePicker</code>.</span>
   <span class="num"><span class="ann">7</span></span><span><strong>Append checkbox</strong> — when checked, logging appends to an existing file rather than overwriting it. Has no effect if the file is new.</span>
@@ -720,7 +723,7 @@
 <p>All other settings — baud, serial parameters, Hex (Send), +\r\n, Show TX, Modbus Slave (MS), MQTT credentials, topics, QoS, Retain, and Poll delay — are remembered in localStorage.</p>
 
 <h3>Log file format</h3>
-<p>Each line is prefixed with a <code>[HH:MM:SS.mmm]</code> timestamp. Frame-break separators appear as <code>── HH:MM:SS.mmm ──</code>. Session start/end markers are written automatically.</p>
+<p>Each line is prefixed with a <code>[HH:MM:SS.mmm]</code> timestamp. Frame breaks appear as a plain line break. Session start/end markers are written automatically.</p>
 
 </div><!-- /.content -->
 </body>

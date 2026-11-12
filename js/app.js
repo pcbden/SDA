@@ -1,15 +1,9 @@
 'use strict';
 
-// ── Guard ─────────────────────────────────────────────
-if (!SerialManager.isSupported()) {
-  document.body.innerHTML = `
-    <div class="no-serial">
-      <strong>Web Serial API is not available.</strong><br>
-      Please open this page in <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> (version 89+).<br>
-      The page must be served from <code>http://localhost</code>, <code>http://127.0.0.1</code>, or an <code>https://</code> origin.
-    </div>`;
-  throw new Error('Web Serial API not supported');
-}
+// ── Capabilities ──────────────────────────────────────
+// Without Web Serial (iOS, Firefox, …) the page still works in MQTT mode.
+const SERIAL_OK  = SerialManager.isSupported();
+const IS_ANDROID = /Android/i.test(navigator.userAgent);
 
 // ── State ─────────────────────────────────────────────
 const serial      = new SerialManager();
@@ -30,6 +24,12 @@ let pollActive   = false;
 let pollTimerId  = null;
 let pollIndex    = 0;
 let cmdResultEls = []; // populated by buildCmdRow; gives poller access to each row's result input
+const expandedCmds = new WeakSet(); // commands whose config is open (mobile layout)
+
+// Serial line errors (wrong baud/parity etc.)
+let lineErrCount  = 0;
+let lineErrNoteAt = 0;
+let reconfPending = 0;
 
 // Log state
 let logFileHandle = null;
@@ -64,6 +64,9 @@ const elPortInfo   = $('portInfo');
 const elBtnLog       = $('btnLog');
 const elChkLogAppend = $('chkLogAppend');
 const elLogFileName  = $('logFileName');
+const elParamSummary = $('paramSummary');
+const elLineErr      = $('lineErr');
+let   portLabel      = '';
 
 // ── Graph helpers ─────────────────────────────────────
 function randomGraphColor() {
@@ -113,8 +116,41 @@ function sendCurrentGraphValues() {
 }
 
 // ── Connection ────────────────────────────────────────
+function uartOptions() {
+  return {
+    baudRate: parseInt(elBaud.value, 10),
+    dataBits: parseInt(elDataBits.value, 10),
+    parity:   elParity.value,
+    stopBits: parseInt(elStopBits.value, 10),
+  };
+}
+
+function uartSummary(o) {
+  return `${o.baudRate} ${o.dataBits}${o.parity[0].toUpperCase()}${o.stopBits}`;
+}
+
+function setUartSelects(o) {
+  elBaud.value     = String(o.baudRate);
+  elDataBits.value = String(o.dataBits);
+  elParity.value   = o.parity;
+  elStopBits.value = String(o.stopBits);
+}
+
+function updateParamSummary() {
+  const sum = uartSummary(uartOptions());
+  elParamSummary.textContent = sum;
+  if (serial.connected && !mqttMode) elPortInfo.textContent = `${portLabel} · ${uartSummary(serial.options)}`;
+}
+
 elBtnOpen.addEventListener('click', async () => {
   if (mqttMode) { alert('MQTT is active. Disconnect MQTT first.'); return; }
+  if (!SERIAL_OK) {
+    alert('Web Serial is not available in this browser.\n\n'
+        + 'Use Chrome or Edge on a computer, or Chrome on Android (Bluetooth serial). '
+        + 'The page must be served from https:// or localhost.\n\n'
+        + 'MQTT mode works in any browser.');
+    return;
+  }
   if (serial.connected) {
     await serial.disconnect();
     if (pendingModbus) { clearTimeout(pendingModbus.timer); clearTimeout(pendingModbus.hardTimeout); }
@@ -132,24 +168,75 @@ elBtnOpen.addEventListener('click', async () => {
     return;
   }
 
+  // Desktop pickers also list built-in ttyS*/COM ports that are almost never
+  // what you want. Android only lists real devices, so skip the check there.
   const info = port.getInfo();
-  if (info.usbVendorId === undefined) {
-    alert('The selected port is not a USB device.\nPlease select your connected USB device (e.g. ttyUSB0, ttyACM0, COMx).');
+  if (!IS_ANDROID && info.usbVendorId === undefined && info.bluetoothServiceClassId === undefined) {
+    alert('The selected port is not a USB or Bluetooth device.\nPlease select your connected device (e.g. ttyUSB0, ttyACM0, COMx).');
     return;
   }
 
   try {
-    const label = await serial.connect({
-      baudRate: parseInt(elBaud.value, 10),
-      dataBits: parseInt(elDataBits.value, 10),
-      parity:   elParity.value,
-      stopBits: parseInt(elStopBits.value, 10),
-    }, port);
+    const label = await serial.connect(uartOptions(), port);
+    resetLineErrors();
     setConnected(true, label);
   } catch (err) {
     alert('Failed to open port:\n' + err.message);
   }
 });
+
+// ── Live UART reconfiguration ─────────────────────────
+// Changing Baud/Data/Parity/Stop while the port is open closes and reopens
+// the same port with the new settings — no need to pick it again.
+async function applyUartChange() {
+  updateParamSummary();
+  if (mqttMode || !serial.connected) return;
+
+  const opts = uartOptions();
+  reconfPending++;
+  elConnStatus.textContent = 'Reconfiguring…';
+  try {
+    await serial.reconfigure(opts);
+    resetLineErrors();
+    appendNote(`Port settings → ${uartSummary(opts)}`);
+  } catch (err) {
+    // Show what the port is really using now
+    if (serial.connected && serial.options) {
+      setUartSelects(serial.options);
+      saveSettings();
+    }
+    alert('Could not apply serial settings:\n' + err.message);
+  } finally {
+    reconfPending--;
+    if (reconfPending === 0 && serial.connected) elConnStatus.textContent = 'Connected';
+    updateParamSummary();
+  }
+}
+
+[elBaud, elDataBits, elParity, elStopBits].forEach(el => el.addEventListener('change', applyUartChange));
+
+// ── Line errors ───────────────────────────────────────
+// Framing/break/parity errors no longer close the port; they are counted here.
+serial.onLineError = (err) => {
+  lineErrCount++;
+  elLineErr.style.display = '';
+  elLineErr.textContent = `⚠ ${lineErrCount} line error${lineErrCount === 1 ? '' : 's'}`;
+  elLineErr.title = `Last: ${err.name}. This usually means Baud / Data / Parity / Stop `
+                  + `don't match the device. You can change them while the port is open. Click to reset.`;
+  const now = Date.now();
+  if (now - lineErrNoteAt > 3000) {
+    lineErrNoteAt = now;
+    appendNote(`⚠ ${err.name} at ${uartSummary(serial.options || uartOptions())} — check baud rate / parity`, true);
+  }
+};
+
+function resetLineErrors() {
+  lineErrCount  = 0;
+  lineErrNoteAt = 0;
+  elLineErr.style.display = 'none';
+}
+
+elLineErr.addEventListener('click', resetLineErrors);
 
 function handleIncomingData(data) {
   rxCount += data.length;
@@ -214,7 +301,8 @@ serial.onDisconnect = (err) => {
   pendingModbus = null;
   stopPoll();
   setConnected(false, '');
-  if (err) console.warn('Serial port disconnected:', err.message);
+  appendNote(`Port closed: ${err?.message || 'device disconnected'}. Click Open to reconnect.`, true);
+  if (err) console.warn('Serial port disconnected:', err);
 };
 
 mqttMgr.onDisconnect = (err) => {
@@ -255,14 +343,18 @@ function setMqttDevStatus(raw) {
   }
 }
 
-function setConnected(connected, portLabel) {
+function setConnected(connected, label) {
+  portLabel = connected ? label : '';
   elBtnOpen.textContent = connected ? 'Close' : 'Open';
   elBtnOpen.classList.toggle('is-open', connected);
   elConnDot.classList.toggle('connected', connected);
   elConnStatus.textContent = connected ? 'Connected' : 'Disconnected';
-  elPortName.textContent   = connected ? portLabel : '—';
-  elPortInfo.textContent   = connected ? portLabel : 'No Port';
-  [elBaud, elDataBits, elParity, elStopBits].forEach(el => { el.disabled = connected; });
+  elPortName.textContent   = connected ? label : (SERIAL_OK ? '—' : 'Serial n/a — MQTT only');
+  elPortName.classList.toggle('is-empty', !connected && SERIAL_OK);
+  elPortInfo.textContent   = connected ? label : 'No Port';
+  if (!connected) resetLineErrors();
+  // UART settings stay editable: changes are applied live (see applyUartChange)
+  updateParamSummary();
 }
 
 // ── Receive display ───────────────────────────────────
@@ -301,16 +393,30 @@ function appendTxEcho(bytes, prefix = '→') {
   if (logEnabled) writeLog(`[${getTimestamp()}] ${span.textContent}`);
 }
 
-function appendBreak() {
+// Informational line in the receive area (not device data)
+function appendNote(text, warn = false) {
+  if (paused) return;
   const atBottom = isAtBottom(elRxArea);
-  const ts = getTimestamp();
   const el = document.createElement('div');
-  el.className   = 'break-sep';
-  el.textContent = '── ' + ts + ' ──';
+  el.className   = warn ? 'rx-note warn' : 'rx-note';
+  el.textContent = `[${getTimestamp()}] ${text}`;
   elRxArea.appendChild(el);
   trimRx();
   if (atBottom) elRxArea.scrollTop = elRxArea.scrollHeight;
-  if (logEnabled) writeLog(`\n── ${ts} ──\n`);
+  if (logEnabled) writeLog(`[${getTimestamp()}] ${text}\n`);
+}
+
+// Frame break: after a silence, start the next frame on a new line.
+// Adds nothing if the output already ends with a newline (no blank lines).
+// Timestamps come from the Time option, not from here.
+function appendBreak() {
+  const last = elRxArea.lastChild;
+  if (!last || last.nodeName === 'DIV' || last.textContent.endsWith('\n')) return;
+  const atBottom = isAtBottom(elRxArea);
+  elRxArea.appendChild(document.createTextNode('\n'));
+  trimRx();
+  if (atBottom) elRxArea.scrollTop = elRxArea.scrollHeight;
+  if (logEnabled) writeLog('\n');
 }
 
 function trimRx() {
@@ -845,32 +951,59 @@ function renderCommands() {
 function buildCmdRow(cmd, i) {
   const entry = document.createElement('div');
   entry.className = 'cmd-entry';
+  if (expandedCmds.has(cmd)) entry.classList.add('expanded');
 
   const row = document.createElement('div');
   row.className = 'cmd-row';
 
   const previewEl = document.createElement('div');
-  previewEl.className = 'cmd-preview';
+  previewEl.className = 'cmd-preview cmd-cfg';
   previewEl.style.display = 'none';
 
   let showActive = false;
   function updatePreview() { previewEl.textContent = '→ ' + buildSendPreview(commands[i]); }
 
-  const nameEl = makeInput('text', 'cmd-name-input', cmd.name || '', 'Name');
-  nameEl.addEventListener('input', () => { commands[i].name = nameEl.value; Storage.saveCommands(commands); });
+  // Mobile: read-only title shown in the collapsed row
+  const nameLabel = document.createElement('span');
+  nameLabel.className = 'cmd-name-label';
+  function updateNameLabel() {
+    const c = commands[i];
+    const byValue = !c.name && !!c.value;
+    nameLabel.textContent = c.name || c.value || `CMD ${i + 1}`;
+    nameLabel.classList.toggle('is-value', byValue);
+  }
+  updateNameLabel();
 
-  const valEl = makeInput('text', 'cmd-val-input', cmd.value || '', 'Command data');
+  // Mobile: toggles the config section of this command
+  const editBtn = document.createElement('button');
+  editBtn.className = 'btn btn-cmd-edit';
+  editBtn.title     = 'Configure';
+  editBtn.setAttribute('aria-label', 'Configure command');
+  editBtn.setAttribute('aria-expanded', String(expandedCmds.has(cmd)));
+  editBtn.innerHTML = '<svg class="ico" aria-hidden="true"><use href="#i-sliders"/></svg>';
+  editBtn.addEventListener('click', () => {
+    const open = entry.classList.toggle('expanded');
+    if (open) expandedCmds.add(commands[i]); else expandedCmds.delete(commands[i]);
+    editBtn.setAttribute('aria-expanded', String(open));
+  });
+
+  const nameEl = makeInput('text', 'cmd-name-input cmd-cfg', cmd.name || '', 'Name');
+  nameEl.addEventListener('input', () => { commands[i].name = nameEl.value; Storage.saveCommands(commands); updateNameLabel(); });
+
+  // In slave mode the value is what you edit most, so it stays visible on mobile
+  const valEl = makeInput('text', slaveMode ? 'cmd-val-input' : 'cmd-val-input cmd-cfg', cmd.value || '', 'Command data');
   valEl.addEventListener('input', () => {
     if (commands[i].isHex && !slaveMode) formatHexInput(valEl);
     commands[i].value = valEl.value;
     Storage.saveCommands(commands);
+    updateNameLabel();
     if (showActive) updatePreview();
   });
 
   // Result input created early so closures and the poller can reference it
   const mbResultEl = document.createElement('input');
   mbResultEl.type = 'text';
-  mbResultEl.className = 'cmd-mb-result';
+  mbResultEl.className = slaveMode ? 'cmd-mb-result cmd-cfg' : 'cmd-mb-result';
   mbResultEl.readOnly = true;
   mbResultEl.placeholder = '—';
   cmdResultEls[i] = mbResultEl;
@@ -938,7 +1071,7 @@ function buildCmdRow(cmd, i) {
 
   const hexLabel = makeCheckLabel('Hex', !!cmd.isHex, v => {
     commands[i].isHex = v;
-    if (!slaveMode) { valEl.value = ''; commands[i].value = ''; }
+    if (!slaveMode) { valEl.value = ''; commands[i].value = ''; updateNameLabel(); }
     Storage.saveCommands(commands);
     if (showActive) updatePreview();
   });
@@ -1077,7 +1210,11 @@ function buildCmdRow(cmd, i) {
     nlLabel.style.display        = cmd.modbus ? 'none' : '';
     slavePatternEl.style.display = 'none';
   }
-  row.append(nameEl, mbResultEl, valEl, modbusLabel, hexLabel, nlLabel, mbTypeEl, mbSizeEl, mbOrderEl, showBtn, graphLabel, slavePatternEl, sendBtn, delBtn);
+  // Config controls: always visible on desktop, behind editBtn on mobile
+  [modbusLabel, hexLabel, nlLabel, mbTypeEl, mbSizeEl, mbOrderEl, showBtn, graphLabel, slavePatternEl, delBtn]
+    .forEach(el => el.classList.add('cmd-cfg'));
+
+  row.append(nameLabel, nameEl, mbResultEl, valEl, modbusLabel, hexLabel, nlLabel, mbTypeEl, mbSizeEl, mbOrderEl, showBtn, graphLabel, slavePatternEl, sendBtn, delBtn, editBtn);
   entry.append(row, previewEl);
   return entry;
 }
@@ -1105,11 +1242,14 @@ function makeCheckLabel(labelText, checked, onChange) {
 }
 
 $('btnAddCmd').addEventListener('click', () => {
-  commands.push({ name: '', value: '', isHex: false, appendNL: false, modbus: false, mbType: 'unsigned', mbSize: 16, mbOrder: 'ABCD', graph: false, graphColor: '', slavePattern: '' });
+  const cmd = { name: '', value: '', isHex: false, appendNL: false, modbus: false, mbType: 'unsigned', mbSize: 16, mbOrder: 'ABCD', graph: false, graphColor: '', slavePattern: '' };
+  commands.push(cmd);
+  expandedCmds.add(cmd); // a new command needs configuring — open it on mobile
   Storage.saveCommands(commands);
   renderCommands();
-  const rows = elCmdList.querySelectorAll('.cmd-row');
+  const rows = elCmdList.querySelectorAll('.cmd-entry');
   const last = rows[rows.length - 1];
+  last?.scrollIntoView({ block: 'nearest' });
   last?.querySelector('.cmd-name-input')?.focus();
 });
 
@@ -1226,6 +1366,8 @@ $('chkSlave').addEventListener('change', e => {
 
 $('chkMqtt').addEventListener('change', () => {
   $('mqttBar').style.display = $('chkMqtt').checked ? '' : 'none';
+  // mobile: open the MQTT fields straight away if nothing is configured yet
+  if ($('chkMqtt').checked && !$('mqttHost').value.trim()) toggleOpts('mqttBar', true);
   if (!$('chkMqtt').checked && mqttMgr.connected) {
     mqttMgr.disconnect();
     mqttMode = false;
@@ -1281,6 +1423,7 @@ $('btnMqttConnect').addEventListener('click', async () => {
     setMqttDevStatus('waiting');
     btn.textContent = 'Disconnect';
     btn.classList.add('is-open');
+    toggleOpts('mqttBar', false); // mobile: tuck the fields away once connected
   } catch (err) {
     alert('MQTT connection failed:\n' + err.message);
     btn.textContent = 'Connect';
@@ -1316,8 +1459,29 @@ SETTING_IDS.forEach(id => $(id).addEventListener('change', saveSettings));
 // ── Help ──────────────────────────────────────────────
 $('btnHelp').addEventListener('click', () => window.open('help.html', 'sda_help'));
 
+// ── Collapsible option groups (mobile) ────────────────
+// [data-toggle="id"] buttons toggle .opts-open on #id; CSS shows/hides its .bar-opts.
+function toggleOpts(id, force) {
+  const target = $(id);
+  if (!target) return;
+  const open = target.classList.toggle('opts-open', force);
+  document.querySelectorAll(`[data-toggle="${id}"]`).forEach(b => {
+    b.classList.toggle('active', open);
+    if (b.tagName === 'BUTTON') b.setAttribute('aria-expanded', String(open));
+  });
+}
+
+document.querySelectorAll('[data-toggle]').forEach(b => {
+  b.addEventListener('click', () => toggleOpts(b.dataset.toggle));
+});
+
 // ── Boot ──────────────────────────────────────────────
+// File logging needs showSaveFilePicker (desktop Chrome/Edge only)
+if (!('showSaveFilePicker' in window)) {
+  document.querySelectorAll('.log-ctrl').forEach(el => { el.style.display = 'none'; });
+}
 loadSettings();
+setConnected(false, '');
 $('mqttBar').style.display = $('chkMqtt').checked ? '' : 'none';
 slaveMode = $('chkSlave').checked;
 if (slaveMode) {

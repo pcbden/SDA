@@ -12,6 +12,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -61,9 +62,31 @@ body {
   white-space: nowrap;
 }
 
+/* Grouping wrappers: invisible on desktop, collapsible panels on mobile */
+.bar-opts { display: contents; }
+
+#dataBits, #stopBits { width: 46px; }
+#parity              { width: 60px; }
+
+#mqttProto     { width: 68px; }
+#mqttHost      { width: 150px; }
+#mqttPort      { width: 54px; }
+#mqttPath      { width: 60px; }
+#mqttUser,
+#mqttPass      { width: 80px; }
+.mq-topic      { width: 130px; }
+#mqttQos       { width: 46px; }
+#btnMqttConnect { min-width: 90px; }
+
+.mqtt-dev-info {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 /* ── Shared controls ── */
 select,
 input[type="number"],
+input[type="password"],
 input[type="text"] {
   height: 22px;
   border: 1px solid #8c8c8c;
@@ -287,19 +310,6 @@ input:disabled {
   background: #fff;
   color: #000;
   min-height: 0;
-}
-
-.break-sep {
-  display: block;
-  color: #999;
-  font-style: italic;
-  font-size: 11px;
-  text-align: center;
-  border-top: 1px dashed #ddd;
-  border-bottom: 1px dashed #ddd;
-  margin: 3px 0;
-  padding: 1px 0;
-  font-family: 'Segoe UI', Tahoma, sans-serif;
 }
 
 /* ── Send Row ── */
@@ -575,4 +585,439 @@ input:disabled {
   padding: 1px 5px;
   border-radius: 3px;
   font-family: 'Courier New', monospace;
+}
+
+/* ── Notes in the receive area (settings change, line errors) ── */
+.rx-note {
+  display: block;
+  margin: 2px 0;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  font-size: 11px;
+  color: #005a9e;
+}
+
+.rx-note.warn {
+  color: #a04800;
+}
+
+/* ── Line error counter (status bar) ── */
+.line-err {
+  color: #a04800;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ── Icon buttons ── */
+.ico {
+  display: block;
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  padding: 0;
+}
+
+/* Mobile-only pieces of the command row */
+.cmd-name-label,
+.btn-cmd-edit {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  .mobile-only { display: none !important; }
+}
+
+/* ════════════════════════════════════════════════════════
+   Mobile / narrow screens
+   Layout: header → receive → send → commands → status.
+   Settings live behind the sliders buttons (.btn-opts),
+   which toggle .opts-open on their bar or panel.
+   ════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  html, body {
+    overscroll-behavior: none; /* no pull-to-refresh — a reload would close the port */
+  }
+
+  body {
+    font-size: 14px;
+  }
+
+  .desktop-only { display: none !important; }
+
+  /* Bigger touch targets */
+  select,
+  input[type="number"],
+  input[type="password"],
+  input[type="text"] {
+    height: 34px;
+    font-size: 16px;
+    padding: 0 6px;
+  }
+
+  input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+  }
+
+  .btn {
+    height: 36px;
+    padding: 0 12px;
+    font-size: 14px;
+  }
+
+  .btn-sm {
+    height: 32px;
+    padding: 0 10px;
+    font-size: 13px;
+  }
+
+  .btn-icon {
+    width: 36px;
+    padding: 0;
+  }
+
+  .btn-sm.btn-help {
+    width: 32px;
+    padding: 0;
+  }
+
+  .ico {
+    width: 18px;
+    height: 18px;
+  }
+
+  .num-input {
+    width: 70px;
+    height: 34px;
+  }
+
+  .chk-label {
+    gap: 6px;
+  }
+
+  /* ── Collapsible options ── */
+  .conn-sep,
+  .bar-sep {
+    display: none !important;
+  }
+
+  .bar-opts {
+    display: none;
+  }
+
+  .opts-open .bar-opts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    order: 10;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* forces the opened options onto their own line(s) */
+  .conn-bar.opts-open::after,
+  .opts-open > .panel-bar::after {
+    content: '';
+    order: 9;
+    flex-basis: 100%;
+    height: 0;
+  }
+
+  /* ── Connection bar ── */
+  .conn-bar {
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    padding: 6px 8px;
+  }
+
+  .conn-bar > .spacer {
+    display: none;
+  }
+
+  .port-group {
+    flex: 1 1 0;
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
+
+  .port-name {
+    max-width: 100%;
+    min-width: 0;
+    font-size: 14px;
+  }
+
+  .port-name.is-empty {
+    display: none;
+  }
+
+  .param-summary {
+    font-size: 12px;
+    color: #666;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .port-name.is-empty + .param-summary {
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+  }
+
+  .conn-bar .bar-opts .conn-group {
+    gap: 6px;
+  }
+
+  #baud { width: 104px; }
+  #dataBits, #stopBits { width: 56px; }
+  #parity { width: 84px; }
+
+  /* MQTT bar: title + status + Connect; fields in the drawer */
+  .mqtt-title {
+    font-weight: 700;
+    margin-right: auto;
+  }
+
+  .mqtt-dev-info {
+    max-width: 38vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12px;
+  }
+
+  .mqtt-bar .bar-opts .conn-group {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .mqtt-bar .bar-opts .conn-group.mq-half {
+    flex: 1 1 40%;
+  }
+
+  .mqtt-bar .bar-opts .conn-group.mq-qos {
+    flex: 0 0 auto;
+  }
+
+  .mqtt-bar .bar-opts .conn-group > .conn-label:first-child {
+    min-width: 42px;
+  }
+
+  .mqtt-bar .bar-opts input {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+  }
+
+  #mqttProto { width: 76px; flex: 0 0 auto; }
+  #mqttPort  { flex: 0 0 74px; }
+  #mqttPath  { flex: 0 0 72px; }
+  #mqttQos   { width: 60px; }
+  #btnMqttConnect { min-width: 0; }
+
+  /* ── Main layout: stacked ── */
+  .main {
+    flex-direction: column;
+    padding: 4px;
+    gap: 4px;
+  }
+
+  .left-col {
+    flex: 1 1 auto;
+    min-height: auto; /* never smaller than rx (min) + send panel; commands shrink instead */
+    gap: 4px;
+  }
+
+  .rx-panel {
+    min-height: 90px;
+  }
+
+  .cmd-panel {
+    flex: 0 1 auto;
+    max-height: 46dvh;
+    min-height: 0;
+  }
+
+  .panel-bar {
+    min-height: 36px;
+    padding: 3px 6px;
+    gap: 6px 8px;
+  }
+
+  .panel-title {
+    min-width: 0;
+    font-size: 13px;
+  }
+
+  .opts-open > .panel-bar {
+    padding-bottom: 6px;
+  }
+
+  .rx-area {
+    font-size: 13px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tx-row {
+    padding: 5px;
+    gap: 6px;
+  }
+
+  .tx-input {
+    height: 38px;
+    font-size: 16px;
+  }
+
+  .btn-send {
+    height: 38px;
+  }
+
+  /* ── Command rows: [name] [result] [Send] [⚙], config hidden until ⚙ ── */
+  .cmd-entry:hover {
+    background: none;
+  }
+
+  .cmd-entry.expanded {
+    background: #f4f7fc;
+    border-bottom-color: #d6dfee;
+  }
+
+  .cmd-row {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 5px 6px;
+  }
+
+  .cmd-name-label {
+    display: block;
+    order: 0;
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    font-weight: 600;
+    color: #222;
+  }
+
+  .cmd-name-label.is-value {
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: 400;
+    color: #555;
+  }
+
+  .cmd-mb-result {
+    order: 1;
+    width: 112px;
+    height: 34px;
+    font-size: 14px;
+  }
+
+  .cmd-val-input {
+    order: 1;
+    flex: 1 1 0;
+    height: 34px;
+    font-size: 16px;
+  }
+
+  .btn-cmd-send {
+    order: 2;
+    height: 36px;
+    padding: 0 14px;
+    font-size: 14px;
+  }
+
+  .btn-cmd-edit {
+    display: inline-flex;
+    order: 3;
+    height: 36px;
+    width: 36px;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+    color: #555;
+  }
+
+  .cmd-entry.expanded .btn-cmd-edit {
+    background: linear-gradient(180deg, #b8cce4 0%, #8ca8d4 100%);
+    border-color: #4870a8;
+    color: #002050;
+  }
+
+  .cmd-cfg {
+    order: 10;
+  }
+
+  .cmd-entry:not(.expanded) .cmd-cfg {
+    display: none;
+  }
+
+  .cmd-name-input.cmd-cfg,
+  .cmd-val-input.cmd-cfg {
+    flex: 1 1 100%;
+    height: 36px;
+    font-size: 16px;
+  }
+
+  .cmd-chk {
+    gap: 5px;
+    font-size: 14px;
+  }
+
+  .cmd-mb-select,
+  .cmd-mb-order-select {
+    height: 34px;
+    font-size: 14px;
+  }
+
+  .cmd-mb-size,
+  .cmd-mb-order-select {
+    width: 76px;
+  }
+
+  .btn-cmd-show,
+  .btn-cmd-del {
+    height: 34px;
+    width: 40px;
+  }
+
+  .btn-cmd-del {
+    margin-left: auto;
+  }
+
+  .cmd-slave-input {
+    flex: 1 1 120px;
+    height: 34px;
+    font-size: 16px;
+  }
+
+  .cmd-preview {
+    font-size: 12px;
+    padding: 2px 8px 6px;
+  }
+
+  /* ── Status bar ── */
+  .status-bar {
+    height: auto;
+    min-height: 24px;
+    padding: 2px 8px calc(2px + env(safe-area-inset-bottom));
+    font-size: 12px;
+    gap: 6px;
+  }
+
+  .port-info {
+    display: none;
+  }
 }
