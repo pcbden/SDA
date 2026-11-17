@@ -54,6 +54,19 @@ class SerialManager {
     const run = async () => {
       if (!this.port || !this.connected) throw new Error('Not connected');
       const prev = this.options;
+
+      // USB adapters can change line settings in place (same channel)
+      if (this.port.setOptions && (options.channel ?? 0) === (prev.channel ?? 0)) {
+        try {
+          await this.port.setOptions(options);
+          this.options = { ...options };
+          return;
+        } catch (err) {
+          try { await this.port.setOptions(prev); } catch {}
+          throw err;
+        }
+      }
+
       await this._close();
       try {
         await this._open(options);
@@ -73,6 +86,10 @@ class SerialManager {
     return p;
   }
 
+  get label()        { return this.port ? this._portLabel() : ''; }
+  get channelCount() { return this.port?.channelCount || 1; }   // >1 for FT2232, CP2105, multi-CDC…
+  get channel()      { return this.port?.channel ?? 0; }
+
   async send(data /* Uint8Array */) {
     if (this._reconf) { try { await this._reconf; } catch {} }
     if (!this.writer) throw new Error('Not connected');
@@ -89,6 +106,7 @@ class SerialManager {
       stopBits:    options.stopBits,
       flowControl: 'none',
       bufferSize:  65536,
+      channel:     options.channel ?? 0,   // used by UsbSerialPort, ignored by Web Serial
     };
     try {
       await this.port.open(opts);
@@ -129,6 +147,7 @@ class SerialManager {
 
   _portLabel() {
     try {
+      if (this.port.label) return this.port.label;   // UsbSerialPort
       const info = this.port.getInfo();
       if (info.usbVendorId !== undefined) {
         const vid = info.usbVendorId.toString(16).toUpperCase().padStart(4, '0');

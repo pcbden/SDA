@@ -268,7 +268,16 @@
 
 <div class="note">If the settings don't match the device (e.g. port at 9600, device sending at 115200), the adapter reports framing/break/parity errors. The port stays open: the status bar shows <strong>⚠ N line errors</strong> and the receive area shows a warning about every 3 s. Change the baud rate to fix it, and click the counter to reset it. The port closes only if the device is really gone (unplugged); after that, Open works again without replugging.</div>
 
-<div class="note"><strong>Phones and narrow windows:</strong> the layout stacks vertically and settings are tucked behind the <strong>sliders</strong> buttons: port settings in the top bar, receive options, poll/import options, and each command's configuration. A collapsed command shows only its name, Modbus result and Send. Without Web Serial (iOS, Firefox), the page still works in MQTT mode. Chrome on Android supports Bluetooth serial ports.</div>
+<div class="note"><strong>Phones and narrow windows:</strong> the layout stacks vertically and settings are tucked behind the <strong>sliders</strong> buttons: port settings in the top bar, receive options, poll/import options, and each command's configuration. A collapsed command shows only its name, Modbus result and Send. Without Web Serial (iOS, Firefox), the page still works in MQTT mode.</div>
+
+<div class="note"><strong>USB adapters on Android:</strong> Chrome on Android can't see USB serial adapters through Web Serial, so the page talks to them directly over <strong>WebUSB</strong> with built-in drivers: <strong>CDC-ACM</strong> (boards with native USB: STM32, RP2040, ESP32-S2/S3, Arduino Leonardo/Micro…), <strong>FTDI</strong> (FT232R, FT-X, FT232H, FT2232, FT4232), <strong>CH340/CH341</strong>, <strong>CP210x</strong> and <strong>PL2303</strong>. Plug the adapter in with an OTG cable, click Open and pick it from Chrome's USB list, then allow access.
+<ul>
+  <li><strong>Via</strong> (Android only, in port settings): <em>USB adapter</em> (default) uses these drivers; <em>Bluetooth / system</em> uses Web Serial for paired Bluetooth serial devices.</li>
+  <li><strong>Ch</strong> appears for adapters with several ports (FT2232, FT4232, CP2105, composite CDC) and picks the port (A, B, …).</li>
+  <li>DTR and RTS are switched on when the port opens (many CDC devices only send while DTR is on) and off when it closes. Baud/parity changes are applied without closing the port.</li>
+  <li>FTDI adapters also report framing/parity/break errors to the line-error counter.</li>
+  <li>"Could not take over the USB adapter" means another app has it: close apps like Serial USB Terminal (and clear "Open by default" for the device in Android settings), then unplug and replug.</li>
+</ul></div>
 
 <!-- ══════════════════════════════════════════════════════ -->
 <h2 id="mqtt-bar">MQTT Settings Bar</h2>

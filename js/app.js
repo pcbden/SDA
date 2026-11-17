@@ -3,6 +3,7 @@
 // ── Capabilities ──────────────────────────────────────
 // Without Web Serial (iOS, Firefox, …) the page still works in MQTT mode.
 const SERIAL_OK  = SerialManager.isSupported();
+const USB_OK     = typeof UsbSerialPort !== 'undefined' && UsbSerialPort.isSupported();
 const IS_ANDROID = /Android/i.test(navigator.userAgent);
 
 // ── State ─────────────────────────────────────────────
@@ -65,6 +66,9 @@ const elBtnLog       = $('btnLog');
 const elChkLogAppend = $('chkLogAppend');
 const elLogFileName  = $('logFileName');
 const elParamSummary = $('paramSummary');
+const elChannel      = $('usbChannel');
+const elChannelGroup = $('channelGroup');
+const elTransport    = $('transport');
 const elLineErr      = $('lineErr');
 let   portLabel      = '';
 
@@ -122,6 +126,7 @@ function uartOptions() {
     dataBits: parseInt(elDataBits.value, 10),
     parity:   elParity.value,
     stopBits: parseInt(elStopBits.value, 10),
+    channel:  parseInt(elChannel.value, 10) || 0,
   };
 }
 
@@ -142,11 +147,27 @@ function updateParamSummary() {
   if (serial.connected && !mqttMode) elPortInfo.textContent = `${portLabel} · ${uartSummary(serial.options)}`;
 }
 
+// Channel picker: only for adapters with several ports (FT2232, CP2105, …)
+function updateChannelUi() {
+  const n = serial.connected ? serial.channelCount : 1;
+  elChannelGroup.style.display = n > 1 ? '' : 'none';
+  Array.from(elChannel.options).forEach((o, k) => { o.hidden = o.disabled = k >= n; });
+  if (n > 1) elChannel.value = String(serial.channel);
+}
+
+// Android: Web Serial there only sees Bluetooth ports, so USB adapters go
+// through WebUSB with the drivers in usbserial.js.
+function useUsb() {
+  if (!USB_OK) return false;
+  if (!SERIAL_OK) return true;
+  return IS_ANDROID && elTransport.value === 'usb';
+}
+
 elBtnOpen.addEventListener('click', async () => {
   if (mqttMode) { alert('MQTT is active. Disconnect MQTT first.'); return; }
-  if (!SERIAL_OK) {
-    alert('Web Serial is not available in this browser.\n\n'
-        + 'Use Chrome or Edge on a computer, or Chrome on Android (Bluetooth serial). '
+  if (!SERIAL_OK && !USB_OK) {
+    alert('Neither Web Serial nor WebUSB is available in this browser.\n\n'
+        + 'Use Chrome or Edge on a computer, or Chrome on Android. '
         + 'The page must be served from https:// or localhost.\n\n'
         + 'MQTT mode works in any browser.');
     return;
@@ -160,9 +181,10 @@ elBtnOpen.addEventListener('click', async () => {
     return;
   }
 
+  const viaUsb = useUsb();
   let port;
   try {
-    port = await navigator.serial.requestPort();
+    port = viaUsb ? await UsbSerialPort.request() : await navigator.serial.requestPort();
   } catch (err) {
     if (err.name !== 'NotFoundError') alert('Failed to select port:\n' + err.message);
     return;
@@ -170,10 +192,12 @@ elBtnOpen.addEventListener('click', async () => {
 
   // Desktop pickers also list built-in ttyS*/COM ports that are almost never
   // what you want. Android only lists real devices, so skip the check there.
-  const info = port.getInfo();
-  if (!IS_ANDROID && info.usbVendorId === undefined && info.bluetoothServiceClassId === undefined) {
-    alert('The selected port is not a USB or Bluetooth device.\nPlease select your connected device (e.g. ttyUSB0, ttyACM0, COMx).');
-    return;
+  if (!viaUsb) {
+    const info = port.getInfo();
+    if (!IS_ANDROID && info.usbVendorId === undefined && info.bluetoothServiceClassId === undefined) {
+      alert('The selected port is not a USB or Bluetooth device.\nPlease select your connected device (e.g. ttyUSB0, ttyACM0, COMx).');
+      return;
+    }
   }
 
   try {
@@ -198,7 +222,11 @@ async function applyUartChange() {
   try {
     await serial.reconfigure(opts);
     resetLineErrors();
-    appendNote(`Port settings → ${uartSummary(opts)}`);
+    portLabel = serial.label;                    // channel may have changed
+    elPortName.textContent = portLabel;
+    updateChannelUi();
+    appendNote(`Port settings → ${uartSummary(opts)}`
+             + (serial.channelCount > 1 ? ` · channel ${'ABCD'[serial.channel]}` : ''));
   } catch (err) {
     // Show what the port is really using now
     if (serial.connected && serial.options) {
@@ -213,7 +241,7 @@ async function applyUartChange() {
   }
 }
 
-[elBaud, elDataBits, elParity, elStopBits].forEach(el => el.addEventListener('change', applyUartChange));
+[elBaud, elDataBits, elParity, elStopBits, elChannel].forEach(el => el.addEventListener('change', applyUartChange));
 
 // ── Line errors ───────────────────────────────────────
 // Framing/break/parity errors no longer close the port; they are counted here.
@@ -349,8 +377,10 @@ function setConnected(connected, label) {
   elBtnOpen.classList.toggle('is-open', connected);
   elConnDot.classList.toggle('connected', connected);
   elConnStatus.textContent = connected ? 'Connected' : 'Disconnected';
-  elPortName.textContent   = connected ? label : (SERIAL_OK ? '—' : 'Serial n/a — MQTT only');
-  elPortName.classList.toggle('is-empty', !connected && SERIAL_OK);
+  const serialAvail = SERIAL_OK || USB_OK;
+  elPortName.textContent   = connected ? label : (serialAvail ? '—' : 'Serial n/a — MQTT only');
+  elPortName.classList.toggle('is-empty', !connected && serialAvail);
+  updateChannelUi();
   elPortInfo.textContent   = connected ? label : 'No Port';
   if (!connected) resetLineErrors();
   // UART settings stay editable: changes are applied live (see applyUartChange)
@@ -1433,7 +1463,7 @@ $('btnMqttConnect').addEventListener('click', async () => {
 });
 
 // ── Settings persistence ──────────────────────────────
-const SETTING_IDS = ['baud', 'dataBits', 'parity', 'stopBits', 'breakMs', 'txHex', 'appendNL', 'showTx', 'pollDelay', 'pollLoop', 'chkSlave', 'mqttProto', 'mqttHost', 'mqttPort', 'mqttPath', 'mqttUser', 'mqttPass', 'mqttSendTopic', 'mqttRecvTopic', 'mqttStatusTopic', 'mqttQos', 'mqttRetain'];
+const SETTING_IDS = ['baud', 'dataBits', 'parity', 'stopBits', 'usbChannel', 'transport', 'breakMs', 'txHex', 'appendNL', 'showTx', 'pollDelay', 'pollLoop', 'chkSlave', 'mqttProto', 'mqttHost', 'mqttPort', 'mqttPath', 'mqttUser', 'mqttPass', 'mqttSendTopic', 'mqttRecvTopic', 'mqttStatusTopic', 'mqttQos', 'mqttRetain'];
 
 function saveSettings() {
   const s = {};
@@ -1481,6 +1511,8 @@ if (!('showSaveFilePicker' in window)) {
   document.querySelectorAll('.log-ctrl').forEach(el => { el.style.display = 'none'; });
 }
 loadSettings();
+// "Via" choice only matters on Android, where both WebUSB and Web Serial exist
+$('transportGroup').style.display = (IS_ANDROID && SERIAL_OK && USB_OK) ? '' : 'none';
 setConnected(false, '');
 $('mqttBar').style.display = $('chkMqtt').checked ? '' : 'none';
 slaveMode = $('chkSlave').checked;

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
   <meta name="theme-color" content="#e2e2e2">
   <title>Serial Debug Assistant</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=3">
 </head>
 <body>
 
@@ -69,6 +69,24 @@
         <select id="stopBits">
           <option value="1" selected>1</option>
           <option value="2">2</option>
+        </select>
+      </div>
+      <!-- Multi-port adapters (FT2232, FT4232, CP2105, composite CDC): shown when one is open -->
+      <div class="conn-group" id="channelGroup" style="display:none">
+        <label class="conn-label" for="usbChannel">Ch</label>
+        <select id="usbChannel">
+          <option value="0" selected>A</option>
+          <option value="1">B</option>
+          <option value="2">C</option>
+          <option value="3">D</option>
+        </select>
+      </div>
+      <!-- Android only: USB adapters need WebUSB; Web Serial there only sees Bluetooth -->
+      <div class="conn-group" id="transportGroup" style="display:none">
+        <label class="conn-label" for="transport">Via</label>
+        <select id="transport">
+          <option value="usb" selected>USB adapter</option>
+          <option value="serial">Bluetooth / system</option>
         </select>
       </div>
       <div class="conn-sep"></div>
@@ -223,9 +241,10 @@
   </div>
 
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-  <script src="js/storage.js"></script>
-  <script src="js/serial.js"></script>
-  <script src="js/mqtt.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/storage.js?v=3"></script>
+  <script src="js/serial.js?v=3"></script>
+  <script src="js/usbserial.js?v=3"></script>
+  <script src="js/mqtt.js?v=3"></script>
+  <script src="js/app.js?v=3"></script>
 </body>
 </html>

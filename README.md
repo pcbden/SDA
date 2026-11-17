@@ -11,7 +11,10 @@ A browser-based serial port and MQTT debug tool. Send/receive raw data, poll Mod
 - **Extension commands** — save, import/export, and poll a list of commands
 - **Logging** — stream received data to a local file in real time
 - **Live serial settings** — change baud/data/parity/stop while the port is open; line errors from a mismatched baud are counted instead of closing the port
-- **Mobile layout** — on phones/narrow windows settings are tucked behind toggle buttons; commands collapse to name + result + Send. MQTT works in any browser; Chrome on Android supports Bluetooth serial
+- **Mobile layout** — on phones/narrow windows settings are tucked behind toggle buttons; commands collapse to name + result + Send. MQTT works in any browser
+- **USB adapters on Android** — built-in WebUSB drivers for CDC-ACM, FTDI (incl. FT2232/FT4232 channel select), CH340/CH341, CP210x and PL2303, because Chrome on Android doesn't expose USB serial ports through Web Serial
+
+> When deploying a new version, bump the `?v=` number on the CSS/JS links in `index.html` so phones don't keep using cached old files.
 
 ## Requirements
 

@@ -67,6 +67,7 @@ body {
 
 #dataBits, #stopBits { width: 46px; }
 #parity              { width: 60px; }
+#usbChannel          { width: 46px; }
 
 #mqttProto     { width: 68px; }
 #mqttHost      { width: 150px; }
@@ -781,8 +782,9 @@ input:disabled {
   }
 
   #baud { width: 104px; }
-  #dataBits, #stopBits { width: 56px; }
+  #dataBits, #stopBits, #usbChannel { width: 56px; }
   #parity { width: 84px; }
+  #transport { width: auto; }
 
   /* MQTT bar: title + status + Connect; fields in the drawer */
   .mqtt-title {
